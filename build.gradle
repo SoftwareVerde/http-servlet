@@ -1,5 +1,5 @@
 group 'com.softwareverde'
-version '0.0.1'
+version '0.0.2'
 
 apply plugin: 'java'
 
@@ -7,11 +7,9 @@ sourceCompatibility = 1.7
 
 task makeJar(type: Jar) {
     manifest {
-        attributes  'Implementation-Title': 'Server Jar',
-                    'Implementation-Version': version,
-                    'Main-Class': 'com.softwareverde.example.server.Main'
+        attributes  'Implementation-Title': 'HTTP Server',
+                    'Implementation-Version': version
     }
-    // baseName = project.name + '-server'
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
 }
