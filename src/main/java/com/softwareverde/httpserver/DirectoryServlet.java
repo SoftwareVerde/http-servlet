@@ -36,7 +36,6 @@ public class DirectoryServlet<T> extends ApiServer.StaticContent<T> {
                     }
 
                     servedFiles.put(fileUriWithForwardSlashes, file);
-                    System.out.println("Registering File: "+ fileUriWithForwardSlashes);
                 }
                 else if (_serveRecursive && file.isDirectory()) {
                     _indexServedFiles(file, servedFiles);
