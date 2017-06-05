@@ -2,8 +2,9 @@
 /local.properties
 .DS_Store
 /build
-bin
-out
+/ssl/out
+/out
+/bin
 
 .idea
 tmp

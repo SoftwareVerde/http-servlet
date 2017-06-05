@@ -8,7 +8,8 @@ sourceCompatibility = 1.7
 task makeJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'HTTP Server',
-                    'Implementation-Version': version
+                    'Implementation-Version': version,
+                    'Main-Class': 'com.softwareverde.example.server.Main'
     }
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
