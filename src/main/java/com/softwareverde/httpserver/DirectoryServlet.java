@@ -24,7 +24,18 @@ public class DirectoryServlet<T> extends ApiServer.StaticContent<T> {
             for (final File file : directoryFiles) {
                 if (file.isFile()) {
                     final String fileUri = file.getPath().substring(_rootDirectory.getPath().length());
-                    servedFiles.put(fileUri, file);
+
+                    final String fileUriWithForwardSlashes;
+                    { // Windows uses backslashes for separators, which will not match any web uri. Therefore, they are translated here.
+                        if (File.separator.equals("\\")) {
+                            fileUriWithForwardSlashes = fileUri.replace("\\", "/");
+                        }
+                        else {
+                            fileUriWithForwardSlashes = fileUri;
+                        }
+                    }
+
+                    servedFiles.put(fileUriWithForwardSlashes, file);
                 }
                 else if (_serveRecursive && file.isDirectory()) {
                     _indexServedFiles(file, servedFiles);
