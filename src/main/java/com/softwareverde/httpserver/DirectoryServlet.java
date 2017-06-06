@@ -1,6 +1,9 @@
 package com.softwareverde.httpserver;
 
-import com.softwareverde.util.Util;
+import com.softwareverde.httpserver.endpoint.StaticContentHandler;
+import com.softwareverde.httpserver.request.Request;
+import com.softwareverde.httpserver.response.Response;
+import com.softwareverde.util.IoUtil;
 
 import java.io.File;
 import java.net.URI;
@@ -9,9 +12,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.softwareverde.httpserver.ApiServer.Response.ResponseCodes;
-
-public class DirectoryServlet<T> extends ApiServer.StaticContent<T> {
+public class DirectoryServlet extends StaticContentHandler {
     private final File _rootDirectory;
     private Map<String, File> _servedFiles = null;
     private Boolean _serveRecursive = false;
@@ -54,8 +55,7 @@ public class DirectoryServlet<T> extends ApiServer.StaticContent<T> {
         return filename.substring(filename.lastIndexOf("."), filename.length());
     }
 
-    public DirectoryServlet(final ApiServer<T> apiServer, final File directory) {
-        super(apiServer);
+    public DirectoryServlet(final File directory) {
         _rootDirectory = directory;
 
         _reIndexFiles();
@@ -71,7 +71,9 @@ public class DirectoryServlet<T> extends ApiServer.StaticContent<T> {
     }
 
     @Override
-    public ApiServer.Response onRequest(final String host, final String uri, final String filePath) {
+    public Response onRequest(final Request request) {
+        final String filePath = request.getFilePath();
+
         final Boolean shouldUseIndexFile = ( (_indexFile != null) && ((filePath.isEmpty()) || (filePath.charAt(filePath.length() - 1) == '/')) );
 
         final String fileName;
@@ -93,23 +95,23 @@ public class DirectoryServlet<T> extends ApiServer.StaticContent<T> {
             final File servedFile = _servedFiles.get(fileName);
 
             if (servedFile.isFile()) {
-                final ApiServer.Response response = new ApiServer.Response();
+                final Response response = new Response();
 
                 final String extension = _parseExtension(servedFile.getName());
                 if (_contentTypeResolver.isKnownExtension(extension)) {
                     final String contentType = _contentTypeResolver.getContentType(extension);
-                    response.addHeader(ApiServer.Response.Headers.CONTENT_TYPE, contentType);
+                    response.addHeader(Response.Headers.CONTENT_TYPE, contentType);
                 }
 
-                response.setCode(ResponseCodes.OK);
-                response.setContent(Util.getFileContents(servedFile));
+                response.setCode(Response.ResponseCodes.OK);
+                response.setContent(IoUtil.getFileContents(servedFile));
 
                 return response;
             }
         }
 
-        final ApiServer.Response response = new ApiServer.Response();
-        response.setCode(ResponseCodes.NOT_FOUND);
+        final Response response = new Response();
+        response.setCode(Response.ResponseCodes.NOT_FOUND);
         response.setContent("Not found.");
         return response;
     }

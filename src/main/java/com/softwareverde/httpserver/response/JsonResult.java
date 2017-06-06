@@ -1,7 +1,7 @@
 package com.softwareverde.httpserver.response;
 
-import com.softwareverde.util.Json;
-import com.softwareverde.util.Jsonable;
+import com.softwareverde.json.Json;
+import com.softwareverde.json.Jsonable;
 
 public class JsonResult implements Jsonable {
     private Boolean _wasSuccess;

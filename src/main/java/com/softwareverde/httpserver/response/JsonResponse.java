@@ -1,10 +1,9 @@
 package com.softwareverde.httpserver.response;
 
-import com.softwareverde.httpserver.ApiServer;
 import com.softwareverde.httpserver.ContentTypeResolver;
-import com.softwareverde.util.Jsonable;
+import com.softwareverde.json.Jsonable;
 
-public class JsonResponse extends ApiServer.Response {
+public class JsonResponse extends Response {
     private ContentTypeResolver _contentTypeResolver = new ContentTypeResolver();
 
     private void _setContentTypeHeader() {
