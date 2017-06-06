@@ -1,7 +1,7 @@
 package com.softwareverde.httpserver;
 
-import com.softwareverde.util.Json;
-import com.softwareverde.util.Util;
+import com.softwareverde.json.Json;
+import com.softwareverde.util.IoUtil;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -9,7 +9,7 @@ import java.util.Map;
 public class ContentTypeResolver {
     private static Map<String, String> _extensionContentMap = new HashMap<String, String>();
     static {
-        final Json contentTypes = Json.fromString(Util.getResource("/content-types.json"));
+        final Json contentTypes = Json.parse(IoUtil.getResource("/content-types.json"));
         for (Integer i = 0; i < contentTypes.length(); ++i) {
             final Json contentType = contentTypes.get(i);
             _extensionContentMap.put(contentType.get(0, Json.Types.STRING), contentType.get(1, Json.Types.STRING));
