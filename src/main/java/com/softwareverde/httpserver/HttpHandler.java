@@ -80,27 +80,17 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
             }
         }
 
-        final byte[] responseBytes = response.getContent();
-
         { // Send Response Headers
             final Headers httpExchangeHeaders = httpExchange.getResponseHeaders();
-            final Map<String, List<String>> headers = response.getHeaders();
-            for (final String headerKey : headers.keySet()) {
-                final StringBuilder headerValueBuilder = new StringBuilder();
-                final List<String> headerValues = headers.get(headerKey);
-                for (Integer i = 0; i < headerValues.size(); ++i) {
-                    final String headerValue = headerValues.get(i);
-                    headerValueBuilder.append(headerValue);
-
-                    if (i < headerValues.size() - 1) {
-                        headerValueBuilder.append("; ");
-                    }
-                }
-
-                httpExchangeHeaders.add(headerKey, headerValueBuilder.toString());
+            final Map<String, String> compiledHeaders = Response.compileHeaders(response.getHeaders());
+            for (final String headerKey : compiledHeaders.keySet()) {
+                final String headerValue = compiledHeaders.get(headerKey);
+                httpExchangeHeaders.add(headerKey, headerValue);
             }
-            httpExchange.sendResponseHeaders(response.getCode(), responseBytes.length);
         }
+
+        final byte[] responseBytes = response.getContent();
+        httpExchange.sendResponseHeaders(response.getCode(), responseBytes.length);
 
         final OutputStream os = httpExchange.getResponseBody();
         os.write(responseBytes);
