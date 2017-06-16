@@ -1,8 +1,9 @@
 package com.softwareverde.httpserver;
 
-import com.softwareverde.httpserver.endpoint.StaticContentHandler;
-import com.softwareverde.httpserver.request.Request;
-import com.softwareverde.httpserver.response.Response;
+import com.softwareverde.servlet.Servlet;
+import com.softwareverde.servlet.content.ContentTypeResolver;
+import com.softwareverde.servlet.request.Request;
+import com.softwareverde.servlet.response.Response;
 import com.softwareverde.util.IoUtil;
 
 import java.io.File;
@@ -12,7 +13,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
-public class DirectoryServlet extends StaticContentHandler {
+public class DirectoryServlet implements Servlet {
     private final File _rootDirectory;
     private Map<String, File> _servedFiles = null;
     private Boolean _serveRecursive = false;
@@ -114,10 +115,5 @@ public class DirectoryServlet extends StaticContentHandler {
         response.setCode(Response.ResponseCodes.NOT_FOUND);
         response.setContent("Not found.");
         return response;
-    }
-
-    @Override
-    public Boolean isStrictPathEnabled() {
-        return false;
     }
 }

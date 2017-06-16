@@ -1,4 +1,4 @@
-package com.softwareverde.httpserver.response;
+package com.softwareverde.servlet.response;
 
 import java.util.ArrayList;
 import java.util.HashMap;

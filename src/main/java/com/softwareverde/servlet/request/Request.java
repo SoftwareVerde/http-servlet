@@ -1,4 +1,4 @@
-package com.softwareverde.httpserver.request;
+package com.softwareverde.servlet.request;
 
 import com.softwareverde.httpserver.GetParameters;
 import com.softwareverde.httpserver.PostParameters;
@@ -30,17 +30,6 @@ public class Request {
         }
     }
 
-    protected String _hostname;     // The hostname of the server. (e.x.: "softwareverde.com")
-    protected String _filePath;     // The filepath of the request-url. (e.x.: "/index.html")
-    protected HttpMethod _method;
-
-    protected Map<String, List<String>> _headers;
-    protected GetParameters _getParameters;
-    protected PostParameters _postParameters;
-
-    protected String _rawQueryString; // (e.x. "?key=value")
-    protected byte[] _rawPostData;
-
     protected static final QueryStringParser<GetParameters> _getParametersParser = new QueryStringParser<GetParameters>(new QueryStringParser.QueryStringFactory<GetParameters>() {
         @Override
         public GetParameters newInstance() {
@@ -55,29 +44,47 @@ public class Request {
         }
     });
 
+    public static GetParameters parseGetParameters(final String queryString) {
+        return _getParametersParser.parse(queryString);
+    }
+
+    public static PostParameters parsePostParameters(final String postBody) {
+        return _postParametersParser.parse(postBody);
+    }
+
+    protected String _hostname;     // The hostname of the server. (e.x.: "softwareverde.com")
+    protected String _filePath;     // The filepath of the request-url. (e.x.: "/index.html")
+    protected HttpMethod _method;
+
+    protected final Map<String, List<String>> _headers = new HashMap<String, List<String>>();
+    protected GetParameters _getParameters;
+    protected PostParameters _postParameters;
+
+    protected String _rawQueryString; // (e.x. "?key=value")
+    protected byte[] _rawPostData;
+
     public static Request createRequest(final HttpExchange httpExchange) {
         final URI requestUri = httpExchange.getRequestURI();
         final String host = httpExchange.getLocalAddress().getHostName();
         final String filePath = requestUri.getPath();
-
-        final Map<String, List<String>> headers = new HashMap<String, List<String>>();
-        final Headers httpExchangeHeaders = httpExchange.getRequestHeaders();
-
-        for (final String headerKey : httpExchangeHeaders.keySet()) {
-            if (! headers.containsKey(headerKey)) {
-                headers.put(headerKey, new ArrayList<String>());
-            }
-
-            final List<String> headerValues = headers.get(headerKey);
-            headerValues.addAll(httpExchangeHeaders.get(headerKey));
-        }
 
         final Request request = new Request();
         request._hostname = host;
         request._filePath = filePath;
         request._method = HttpMethod.fromString(httpExchange.getRequestMethod());
 
-        request._headers = headers;
+        { // Headers
+            final Headers httpExchangeHeaders = httpExchange.getRequestHeaders();
+
+            for (final String headerKey : httpExchangeHeaders.keySet()) {
+                if (! request._headers.containsKey(headerKey)) {
+                    request._headers.put(headerKey, new ArrayList<String>());
+                }
+
+                final List<String> headerValues = request._headers.get(headerKey);
+                headerValues.addAll(httpExchangeHeaders.get(headerKey));
+            }
+        }
 
         try {
             final String rawQueryString = httpExchange.getRequestURI().getRawQuery();
@@ -102,6 +109,7 @@ public class Request {
 
     public GetParameters getGetParameters() { return _getParameters; }
     public PostParameters getPostParameters() { return _postParameters; }
+
     public Map<String, List<String>> getHeaders() {
         final Map<String, List<String>> headers = new HashMap<String, List<String>>();
         for (final String key : _headers.keySet()) {

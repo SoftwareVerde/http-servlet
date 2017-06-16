@@ -1,7 +1,9 @@
-package com.softwareverde.httpserver.request;
+package com.softwareverde.httpserver.tomcat;
 
 import com.softwareverde.httpserver.HttpServer;
-import com.softwareverde.httpserver.response.Response;
+import com.softwareverde.httpserver.tomcat.request.TomcatRequest;
+import com.softwareverde.servlet.response.Response;
+import com.softwareverde.servlet.request.Request;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 
@@ -15,44 +17,45 @@ import java.util.*;
 
 public class TomcatShim extends HttpServlet {
     public static Request createRequestFromTomcatRequest(final HttpServletRequest httpServletRequest) {
-        final Request request = new Request();
+        final TomcatRequest request = new TomcatRequest();
 
-        request._hostname = httpServletRequest.getLocalAddr();
-        request._filePath = httpServletRequest.getRequestURL().toString();
-        request._method = Request.HttpMethod.fromString(httpServletRequest.getMethod());
+        request.setHostname(httpServletRequest.getLocalAddr());
+        request.setFilePath(httpServletRequest.getRequestURL().toString());
+        request.setMethod(Request.HttpMethod.fromString(httpServletRequest.getMethod()));
 
-        request._headers = new HashMap<String, List<String>>();
+        final Map<String, List<String>> _headers = new HashMap<String, List<String>>();
         {
             final Enumeration<String> headerNames = httpServletRequest.getHeaderNames();
             if (headerNames != null) {
                 while (headerNames.hasMoreElements()) {
-                    final List<String> headers = new ArrayList<String>();
+                    final List<String> headerNameValues = new ArrayList<String>();
 
                     final String headerName = headerNames.nextElement();
                     final Enumeration<String> headerValues = httpServletRequest.getHeaders(headerName);
                     if (headerValues != null) {
                         while (headerValues.hasMoreElements()) {
                             final String headerValue = headerValues.nextElement();
-                            headers.add(headerValue);
+                            headerNameValues.add(headerValue);
                         }
                     }
 
-                    request._headers.put(headerName, headers);
+                    _headers.put(headerName, headerNameValues);
                 }
             }
         }
+        request.setHeaders(_headers);
 
         try {
             final String rawQueryString = httpServletRequest.getQueryString();
-            request._getParameters = Request._getParametersParser.parse(rawQueryString);
-            request._rawQueryString = rawQueryString;
+            request.setGetParameters(Request.parseGetParameters(rawQueryString));
+            request.setRawQueryString(rawQueryString);
         }
         catch (final Exception exception) { exception.printStackTrace(); }
 
         try {
             final String rawPostData = IoUtil.streamToString(httpServletRequest.getInputStream());
-            request._postParameters = Request._postParametersParser.parse(rawPostData);
-            request._rawPostData = StringUtil.stringToBytes(rawPostData);
+            request.setPostParameters(Request.parsePostParameters(rawPostData));
+            request.setRawPostData(StringUtil.stringToBytes(rawPostData));
         }
         catch (final Exception exception) { exception.printStackTrace(); }
 

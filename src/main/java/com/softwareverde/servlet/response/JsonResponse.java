@@ -1,13 +1,13 @@
-package com.softwareverde.httpserver.response;
+package com.softwareverde.servlet.response;
 
-import com.softwareverde.httpserver.ContentTypeResolver;
 import com.softwareverde.json.Jsonable;
+import com.softwareverde.servlet.content.ContentTypeResolver;
 
 public class JsonResponse extends Response {
     private ContentTypeResolver _contentTypeResolver = new ContentTypeResolver();
 
     private void _setContentTypeHeader() {
-        this.addHeader("Content-Type", _contentTypeResolver.getContentType(".json"));
+        this.addHeader(Headers.CONTENT_TYPE, _contentTypeResolver.getContentType(".json"));
     }
 
     public JsonResponse() {

@@ -1,9 +1,9 @@
 package com.softwareverde.httpserver;
 
-import com.softwareverde.httpserver.request.Request;
-import com.softwareverde.httpserver.response.JsonResponse;
-import com.softwareverde.httpserver.response.JsonResult;
-import com.softwareverde.httpserver.response.Response;
+import com.softwareverde.servlet.Servlet;
+import com.softwareverde.servlet.request.Request;
+import com.softwareverde.servlet.response.JsonResponse;
+import com.softwareverde.servlet.response.Response;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 
@@ -13,7 +13,8 @@ import java.util.List;
 import java.util.Map;
 
 class HttpHandler implements com.sun.net.httpserver.HttpHandler {
-    private HttpServer.RequestHandler _requestHandler;
+    protected final Servlet _servlet;
+    protected final Boolean _shouldUseStrictPathMatching;
 
     private Boolean _isPathStrictlyMatched(final HttpExchange httpExchange) {
         final String uriPath;
@@ -40,12 +41,13 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         return uriPath.equals(definedPath);
     }
 
-    public HttpHandler(final HttpServer.RequestHandler requestHandler) {
-        _requestHandler = requestHandler;
+    public HttpHandler(final Servlet servlet, final Boolean shouldUseStrictPathMatching) {
+        _servlet = servlet;
+        _shouldUseStrictPathMatching = shouldUseStrictPathMatching;
     }
 
-    public HttpServer.RequestHandler getRequestHandler() {
-        return _requestHandler;
+    public Servlet getServlet() {
+        return _servlet;
     }
 
     @Override
@@ -54,25 +56,25 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
 
         final Response response;
         {
-            if ( (_requestHandler.isStrictPathEnabled()) && (! pathIsStrictMatch) ) {
-                response = new JsonResponse(Response.ResponseCodes.NOT_FOUND, new JsonResult(false, "Not found."));
+            if ( (_shouldUseStrictPathMatching) && (! pathIsStrictMatch) ) {
+                response = new JsonResponse(Response.ResponseCodes.NOT_FOUND, "Not found.");
             }
             else {
                 final Request request = Request.createRequest(httpExchange);
                 if (request == null) {
-                    response = new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new JsonResult(false, "Bad request."));
+                    response = new JsonResponse(Response.ResponseCodes.SERVER_ERROR, "Bad request.");
                 }
                 else {
                     Response requestHandlerResponse;
                     {
                         try {
-                            requestHandlerResponse = _requestHandler.onRequest(request);
+                            requestHandlerResponse = _servlet.onRequest(request);
                         }
                         catch (final Exception exception) {
                             System.err.println("\n-- Error handling request: " + httpExchange.getRequestURI());
                             exception.printStackTrace();
                             System.err.println("--\n");
-                            requestHandlerResponse = new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new JsonResult(false, "Server error."));
+                            requestHandlerResponse = new JsonResponse(Response.ResponseCodes.SERVER_ERROR, "Server error.");
                         }
                     }
                     response = requestHandlerResponse;

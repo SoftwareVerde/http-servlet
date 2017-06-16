@@ -1,17 +1,17 @@
 package com.softwareverde.httpserver.endpoint;
 
-import com.softwareverde.httpserver.request.Request;
-import com.softwareverde.httpserver.response.JsonResult;
-import com.softwareverde.httpserver.response.Response;
+import com.softwareverde.servlet.Servlet;
+import com.softwareverde.servlet.request.Request;
+import com.softwareverde.servlet.response.Response;
 
-public class NotFoundJsonEndpoint extends StaticContentHandler {
+public class NotFoundJsonEndpoint implements Servlet {
     public NotFoundJsonEndpoint() { }
 
     @Override
     public Response onRequest(final Request request) {
         final Response response = new Response();
         response.setCode(Response.ResponseCodes.NOT_FOUND);
-        response.setContent(new JsonResult(false, "Not found.").toJson().toString());
+        response.setContent("Not found.");
         return response;
     }
 }

@@ -2,8 +2,10 @@ package com.softwareverde.httpserver;
 
 import com.softwareverde.httpserver.endpoint.EncryptionRedirectEndpoint;
 import com.softwareverde.httpserver.endpoint.NotFoundJsonEndpoint;
-import com.softwareverde.httpserver.request.Request;
-import com.softwareverde.httpserver.response.Response;
+import com.softwareverde.servlet.Endpoint;
+import com.softwareverde.servlet.Servlet;
+import com.softwareverde.servlet.request.Request;
+import com.softwareverde.servlet.response.Response;
 import com.softwareverde.security.tls.TlsCertificate;
 import com.softwareverde.security.tls.TlsFactory;
 import com.softwareverde.util.IoUtil;
@@ -38,7 +40,7 @@ public class HttpServer {
     private String _certificateFile = null;
     private String _certificateKeyFile = null;
 
-    private RequestHandler _defaultEndpoint = new NotFoundJsonEndpoint();
+    private Servlet _defaultEndpoint = new NotFoundJsonEndpoint();
     private EncryptionRedirectEndpoint _encryptionRedirectEndpoint = new EncryptionRedirectEndpoint();
 
     private void _applyEndpoints(final com.sun.net.httpserver.HttpServer httpServer) {
@@ -48,7 +50,7 @@ public class HttpServer {
         }
 
         if (! _endpoints.containsKey("/")) {
-            httpServer.createContext("/", new HttpHandler(_defaultEndpoint));
+            httpServer.createContext("/", new HttpHandler(_defaultEndpoint, false));
         }
     }
 
@@ -60,10 +62,14 @@ public class HttpServer {
      * Define a RequestHandler to fulfill any requests matched by the endpoint.
      *  Setting this value after HttpServer.start() has been invoked will have no effect.
      * @param endpoint  - The string endpoint. (i.e. "/", or "/api")
-     * @param handler   - The handler to fulfill the request.
+     * @param endpoint   - The handler to fulfill the request.
      */
-    public void addEndpoint(final String endpoint, final RequestHandler handler) {
-        _endpoints.put(endpoint, new HttpHandler(handler));
+    public void addEndpoint(final Endpoint endpoint) {
+        final String path = endpoint.getPath();
+        final Servlet servlet = endpoint.getServlet();
+        final Boolean shouldUseStrictPath = endpoint.shouldUseStrictPath();
+
+        _endpoints.put(path, new HttpHandler(servlet, shouldUseStrictPath));
     }
 
     /**
@@ -145,7 +151,7 @@ public class HttpServer {
                 _server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(_port), maxQueue);
 
                 if (_redirectToTls) {
-                    _server.createContext("/", new HttpHandler(_encryptionRedirectEndpoint));
+                    _server.createContext("/", new HttpHandler(_encryptionRedirectEndpoint, false));
                 }
                 else {
                     _applyEndpoints(_server);

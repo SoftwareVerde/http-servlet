@@ -1,7 +1,7 @@
 package com.softwareverde.httpserver.session;
 
 import com.softwareverde.httpserver.PostParameters;
-import com.softwareverde.httpserver.request.Request;
+import com.softwareverde.servlet.request.Request;
 import com.softwareverde.security.AuthorizationKeyFactory;
 import com.softwareverde.util.Util;
 
