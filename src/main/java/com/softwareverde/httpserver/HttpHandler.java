@@ -82,10 +82,12 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
 
         { // Send Response Headers
             final Headers httpExchangeHeaders = httpExchange.getResponseHeaders();
-            final Map<String, String> compiledHeaders = Response.compileHeaders(response.getHeaders());
+            final Map<String, List<String>> compiledHeaders = response.getHeaders();
             for (final String headerKey : compiledHeaders.keySet()) {
-                final String headerValue = compiledHeaders.get(headerKey);
-                httpExchangeHeaders.add(headerKey, headerValue);
+                final List<String> headerValues = compiledHeaders.get(headerKey);
+                for (final String headerValue : headerValues) {
+                    httpExchangeHeaders.add(headerKey, headerValue);
+                }
             }
         }
 

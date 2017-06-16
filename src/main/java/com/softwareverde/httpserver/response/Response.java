@@ -21,27 +21,6 @@ public class Response {
         public static final String CONTENT_ENCODING = "Content-Encoding";
     }
 
-    public static Map<String, String> compileHeaders(final Map<String, List<String>> headers) {
-        final Map<String, String> compiledHeaders = new HashMap<String, String>();
-
-        for (final String headerKey : headers.keySet()) {
-            final StringBuilder headerValueBuilder = new StringBuilder();
-            final List<String> headerValues = headers.get(headerKey);
-            for (Integer i = 0; i < headerValues.size(); ++i) {
-                final String headerValue = headerValues.get(i);
-                headerValueBuilder.append(headerValue);
-
-                if (i < headerValues.size() - 1) {
-                    headerValueBuilder.append("; ");
-                }
-            }
-
-            compiledHeaders.put(headerKey, headerValueBuilder.toString());
-        }
-
-        return compiledHeaders;
-    }
-
     private Map<String, List<String>> _headers = new HashMap<String, List<String>>();
 
     private Integer _code = ResponseCodes.OK;

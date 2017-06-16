@@ -69,10 +69,12 @@ public class TomcatShim extends HttpServlet {
             httpServletResponse.setStatus(response.getCode());
 
             { // Send Response Headers
-                final Map<String, String> compiledHeaders = Response.compileHeaders(response.getHeaders());
+                final Map<String, List<String>> compiledHeaders = response.getHeaders();
                 for (final String headerKey : compiledHeaders.keySet()) {
-                    final String headerValue = compiledHeaders.get(headerKey);
-                    httpServletResponse.addHeader(headerKey, headerValue);
+                    final List<String> headerValues = compiledHeaders.get(headerKey);
+                    for (final String headerValue : headerValues) {
+                        httpServletResponse.addHeader(headerKey, headerValue);
+                    }
                 }
             }
 
