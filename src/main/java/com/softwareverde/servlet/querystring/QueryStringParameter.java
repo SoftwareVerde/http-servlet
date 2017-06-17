@@ -1,4 +1,4 @@
-package com.softwareverde.httpserver;
+package com.softwareverde.servlet.querystring;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.softwareverde.httpserver;
+package com.softwareverde.servlet.querystring;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -66,7 +66,7 @@ public class QueryStringParser<T extends QueryString> {
         }
 
         final T queryString = _queryStringFactory.newInstance();
-        queryString.setValues(parameters);
+        queryString._setValues(parameters);
         return queryString;
     }
 }

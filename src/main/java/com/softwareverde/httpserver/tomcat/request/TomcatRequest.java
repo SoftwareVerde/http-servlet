@@ -1,7 +1,7 @@
 package com.softwareverde.httpserver.tomcat.request;
 
-import com.softwareverde.httpserver.GetParameters;
-import com.softwareverde.httpserver.PostParameters;
+import com.softwareverde.servlet.GetParameters;
+import com.softwareverde.servlet.PostParameters;
 import com.softwareverde.servlet.request.Request;
 import com.softwareverde.util.Util;
 

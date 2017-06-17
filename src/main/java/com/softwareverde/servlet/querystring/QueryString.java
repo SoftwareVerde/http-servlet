@@ -1,4 +1,4 @@
-package com.softwareverde.httpserver;
+package com.softwareverde.servlet.querystring;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -9,7 +9,7 @@ public class QueryString {
 
     protected QueryString() { }
 
-    protected void setValues(final Map<String, QueryStringParameter> values) {
+    protected void _setValues(final Map<String, QueryStringParameter> values) {
         _values = values;
     }
 

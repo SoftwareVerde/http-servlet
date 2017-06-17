@@ -1,5 +1,7 @@
 package com.softwareverde.httpserver;
 
+import com.softwareverde.http.cookie.Cookie;
+import com.softwareverde.http.cookie.CookieParser;
 import com.softwareverde.servlet.Servlet;
 import com.softwareverde.servlet.request.Request;
 import com.softwareverde.servlet.response.JsonResponse;
@@ -90,6 +92,13 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 for (final String headerValue : headerValues) {
                     httpExchangeHeaders.add(headerKey, headerValue);
                 }
+            }
+
+            final List<Cookie> cookies = response.getCookies();
+            final CookieParser cookieParser = new CookieParser();
+            final List<String> compiledCookies = cookieParser.compileCookiesIntoSetCookieHeaderValues(cookies);
+            for (final String setCookieHeader : compiledCookies) {
+                httpExchangeHeaders.add(Response.Headers.SET_COOKIE, setCookieHeader);
             }
         }
 

@@ -1,8 +1,10 @@
 package com.softwareverde.servlet.request;
 
-import com.softwareverde.httpserver.GetParameters;
-import com.softwareverde.httpserver.PostParameters;
-import com.softwareverde.httpserver.QueryStringParser;
+import com.softwareverde.http.cookie.Cookie;
+import com.softwareverde.http.cookie.CookieParser;
+import com.softwareverde.servlet.GetParameters;
+import com.softwareverde.servlet.PostParameters;
+import com.softwareverde.servlet.querystring.QueryStringParser;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
@@ -57,6 +59,8 @@ public class Request {
     protected HttpMethod _method;
 
     protected final Map<String, List<String>> _headers = new HashMap<String, List<String>>();
+    protected final List<Cookie> _cookies = new ArrayList<Cookie>();
+
     protected GetParameters _getParameters;
     protected PostParameters _postParameters;
 
@@ -83,6 +87,20 @@ public class Request {
 
                 final List<String> headerValues = request._headers.get(headerKey);
                 headerValues.addAll(httpExchangeHeaders.get(headerKey));
+            }
+        }
+
+        { // Cookies
+            final CookieParser cookieParser = new CookieParser();
+            for (final String headerKey : request._headers.keySet()) {
+                if (! headerKey.equalsIgnoreCase("cookie")) { continue; }
+
+                final List<String> cookieHeaderValues = request._headers.get(headerKey);
+                for (final String cookieHeaderValue : cookieHeaderValues) {
+                    final List<Cookie> parsedCookies = cookieParser.parseFromCookieHeader(cookieHeaderValue);
+                    request._cookies.addAll(parsedCookies);
+                }
+                break;
             }
         }
 
@@ -118,6 +136,8 @@ public class Request {
         }
         return headers;
     }
+
+    public List<Cookie> getCookies() { return Util.copyList(_cookies); }
 
     public byte[] getRawPostData() { return _rawPostData; }
     public String getQueryString() { return _rawQueryString; }

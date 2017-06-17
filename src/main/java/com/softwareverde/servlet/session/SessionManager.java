@@ -1,6 +1,6 @@
-package com.softwareverde.httpserver.session;
+package com.softwareverde.servlet.session;
 
-import com.softwareverde.httpserver.PostParameters;
+import com.softwareverde.servlet.PostParameters;
 import com.softwareverde.servlet.request.Request;
 import com.softwareverde.security.AuthorizationKeyFactory;
 import com.softwareverde.util.Util;
@@ -33,6 +33,10 @@ public class SessionManager<T> {
         return _authorizationKeyFactory.generateAuthorizationKey();
     }
 
+    /**
+     * Returns T set by setAuthorizedSession() that has authorized by either the auth cookie or post parameters.
+     *  Returns null if the session is not authorized.
+     */
     public T getSession(final Request request) {
         final PostParameters postParameters = request.getPostParameters();
         final Map<String, List<String>> headers = request.getHeaders();

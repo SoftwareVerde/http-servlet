@@ -1,5 +1,8 @@
 package com.softwareverde.servlet.response;
 
+import com.softwareverde.http.cookie.Cookie;
+import com.softwareverde.util.Util;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,12 +22,14 @@ public class Response {
     public static class Headers {
         public static final String CONTENT_TYPE = "Content-Type";
         public static final String CONTENT_ENCODING = "Content-Encoding";
+        public static final String SET_COOKIE = "Set-Cookie";
     }
 
-    private Map<String, List<String>> _headers = new HashMap<String, List<String>>();
+    protected final Map<String, List<String>> _headers = new HashMap<String, List<String>>();
+    protected final List<Cookie> _cookies = new ArrayList<Cookie>();
 
-    private Integer _code = ResponseCodes.OK;
-    private byte[] _content = (new byte[0]);
+    protected Integer _code = ResponseCodes.OK;
+    protected byte[] _content = (new byte[0]);
 
     public Response() { }
 
@@ -35,7 +40,8 @@ public class Response {
     public void setContent(final String content) {
         try {
             _content = content.getBytes("UTF-8");
-        } catch (final Exception e) { }
+        }
+        catch (final Exception e) { }
     }
 
     public void setCode(final Integer code) { _code = code; }
@@ -62,4 +68,16 @@ public class Response {
     }
 
     public Map<String, List<String>> getHeaders() { return _headers; }
+
+    public void clearCookies() {
+        _cookies.clear();
+    }
+
+    public void addCookie(final Cookie cookie) {
+        _cookies.add(cookie);
+    }
+
+    public List<Cookie> getCookies() {
+        return Util.copyList(_cookies);
+    }
 }
