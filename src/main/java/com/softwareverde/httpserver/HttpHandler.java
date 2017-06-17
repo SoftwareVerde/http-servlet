@@ -1,9 +1,11 @@
 package com.softwareverde.httpserver;
 
-import com.softwareverde.httpserver.request.Request;
-import com.softwareverde.httpserver.response.JsonResponse;
-import com.softwareverde.httpserver.response.JsonResult;
-import com.softwareverde.httpserver.response.Response;
+import com.softwareverde.http.cookie.Cookie;
+import com.softwareverde.http.cookie.CookieParser;
+import com.softwareverde.servlet.Servlet;
+import com.softwareverde.servlet.request.Request;
+import com.softwareverde.servlet.response.JsonResponse;
+import com.softwareverde.servlet.response.Response;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 
@@ -13,7 +15,8 @@ import java.util.List;
 import java.util.Map;
 
 class HttpHandler implements com.sun.net.httpserver.HttpHandler {
-    private HttpServer.RequestHandler _requestHandler;
+    protected final Servlet _servlet;
+    protected final Boolean _shouldUseStrictPathMatching;
 
     private Boolean _isPathStrictlyMatched(final HttpExchange httpExchange) {
         final String uriPath;
@@ -40,12 +43,13 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         return uriPath.equals(definedPath);
     }
 
-    public HttpHandler(final HttpServer.RequestHandler requestHandler) {
-        _requestHandler = requestHandler;
+    public HttpHandler(final Servlet servlet, final Boolean shouldUseStrictPathMatching) {
+        _servlet = servlet;
+        _shouldUseStrictPathMatching = shouldUseStrictPathMatching;
     }
 
-    public HttpServer.RequestHandler getRequestHandler() {
-        return _requestHandler;
+    public Servlet getServlet() {
+        return _servlet;
     }
 
     @Override
@@ -54,25 +58,25 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
 
         final Response response;
         {
-            if ( (_requestHandler.isStrictPathEnabled()) && (! pathIsStrictMatch) ) {
-                response = new JsonResponse(Response.ResponseCodes.NOT_FOUND, new JsonResult(false, "Not found."));
+            if ( (_shouldUseStrictPathMatching) && (! pathIsStrictMatch) ) {
+                response = new JsonResponse(Response.ResponseCodes.NOT_FOUND, "Not found.");
             }
             else {
                 final Request request = Request.createRequest(httpExchange);
                 if (request == null) {
-                    response = new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new JsonResult(false, "Bad request."));
+                    response = new JsonResponse(Response.ResponseCodes.SERVER_ERROR, "Bad request.");
                 }
                 else {
                     Response requestHandlerResponse;
                     {
                         try {
-                            requestHandlerResponse = _requestHandler.onRequest(request);
+                            requestHandlerResponse = _servlet.onRequest(request);
                         }
                         catch (final Exception exception) {
                             System.err.println("\n-- Error handling request: " + httpExchange.getRequestURI());
                             exception.printStackTrace();
                             System.err.println("--\n");
-                            requestHandlerResponse = new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new JsonResult(false, "Server error."));
+                            requestHandlerResponse = new JsonResponse(Response.ResponseCodes.SERVER_ERROR, "Server error.");
                         }
                     }
                     response = requestHandlerResponse;
@@ -82,10 +86,19 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
 
         { // Send Response Headers
             final Headers httpExchangeHeaders = httpExchange.getResponseHeaders();
-            final Map<String, String> compiledHeaders = Response.compileHeaders(response.getHeaders());
+            final Map<String, List<String>> compiledHeaders = response.getHeaders();
             for (final String headerKey : compiledHeaders.keySet()) {
-                final String headerValue = compiledHeaders.get(headerKey);
-                httpExchangeHeaders.add(headerKey, headerValue);
+                final List<String> headerValues = compiledHeaders.get(headerKey);
+                for (final String headerValue : headerValues) {
+                    httpExchangeHeaders.add(headerKey, headerValue);
+                }
+            }
+
+            final List<Cookie> cookies = response.getCookies();
+            final CookieParser cookieParser = new CookieParser();
+            final List<String> compiledCookies = cookieParser.compileCookiesIntoSetCookieHeaderValues(cookies);
+            for (final String setCookieHeader : compiledCookies) {
+                httpExchangeHeaders.add(Response.Headers.SET_COOKIE, setCookieHeader);
             }
         }
 

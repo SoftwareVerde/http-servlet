@@ -1,10 +1,10 @@
 package com.softwareverde.httpserver.endpoint;
 
-import com.softwareverde.httpserver.request.Request;
-import com.softwareverde.httpserver.response.JsonResult;
-import com.softwareverde.httpserver.response.Response;
+import com.softwareverde.servlet.Servlet;
+import com.softwareverde.servlet.request.Request;
+import com.softwareverde.servlet.response.Response;
 
-public class EncryptionRedirectEndpoint extends StaticContentHandler {
+public class EncryptionRedirectEndpoint implements Servlet {
     public static final Integer standardHttpsPort = 443;
 
     protected Integer _tlsPort = 443;
@@ -25,7 +25,7 @@ public class EncryptionRedirectEndpoint extends StaticContentHandler {
 
         response.addHeader("Location", "https://"+ newUrl);
         response.setCode(Response.ResponseCodes.MOVED_PERMANENTLY);
-        response.setContent(new JsonResult(false, "Location: https://"+ newUrl).toJson().toString());
+        response.setContent("Location: https://"+ newUrl);
         return response;
     }
 }
