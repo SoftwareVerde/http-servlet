@@ -65,7 +65,7 @@ public class SessionManager<T> {
         sessionCookie.setIsHttpOnly(true);
         sessionCookie.setIsSecure(true);
         sessionCookie.setPath("/");
-        sessionCookie.setMaxAge(365 * 24 * 60 * 60); // 1 Year
+        sessionCookie.setMaxAge(365 * 24 * 60 * 60, true); // 1 Year
 
         return sessionCookie;
     }
