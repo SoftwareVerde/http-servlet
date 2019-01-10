@@ -4,7 +4,7 @@ import com.softwareverde.http.cookie.Cookie;
 import com.softwareverde.http.cookie.CookieParser;
 import com.softwareverde.servlet.Servlet;
 import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
+import com.softwareverde.servlet.request.RequestInflater;
 import com.softwareverde.servlet.response.Response;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
@@ -18,7 +18,7 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
     protected final Servlet _servlet;
     protected final Boolean _shouldUseStrictPathMatching;
 
-    private Boolean _isPathStrictlyMatched(final HttpExchange httpExchange) {
+    protected static Boolean isPathStrictlyMatched(final HttpExchange httpExchange) {
         final String uriPath;
         {
             final String rawUriPath = httpExchange.getRequestURI().getPath();
@@ -54,17 +54,18 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
 
     @Override
     public void handle(final HttpExchange httpExchange) throws IOException {
-        final Boolean pathIsStrictMatch = _isPathStrictlyMatched(httpExchange);
+        final Boolean pathIsStrictMatch = isPathStrictlyMatched(httpExchange);
 
         final Response response;
         {
             if ( (_shouldUseStrictPathMatching) && (! pathIsStrictMatch) ) {
-                response = new JsonResponse(Response.ResponseCodes.NOT_FOUND, "Not found.");
+                response = Util.createJsonErrorResponse(Response.ResponseCodes.NOT_FOUND, "Not found.");
             }
             else {
-                final Request request = Request.createRequest(httpExchange);
+                final RequestInflater requestInflater = new RequestInflater();
+                final Request request = requestInflater.createRequest(httpExchange);
                 if (request == null) {
-                    response = new JsonResponse(Response.ResponseCodes.SERVER_ERROR, "Bad request.");
+                    response = Util.createJsonErrorResponse(Response.ResponseCodes.SERVER_ERROR, "Bad request.");
                 }
                 else {
                     Response requestHandlerResponse;
@@ -76,7 +77,7 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                             System.err.println("\n-- Error handling request: " + httpExchange.getRequestURI());
                             exception.printStackTrace();
                             System.err.println("--\n");
-                            requestHandlerResponse = new JsonResponse(Response.ResponseCodes.SERVER_ERROR, "Server error.");
+                            requestHandlerResponse = Util.createJsonErrorResponse(Response.ResponseCodes.SERVER_ERROR, "Server error.");
                         }
                     }
                     response = requestHandlerResponse;
@@ -102,14 +103,17 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
             }
         }
 
+        final OutputStream outputStream = httpExchange.getResponseBody();
+
         final byte[] responseBytes = response.getContent();
-        httpExchange.sendResponseHeaders(response.getCode(), responseBytes.length);
+        httpExchange.sendResponseHeaders(response.getCode(), (responseBytes == null ? -1 : responseBytes.length));
 
-        final OutputStream os = httpExchange.getResponseBody();
-        os.write(responseBytes);
-        os.flush();
-        os.close();
+        if (responseBytes != null) {
+            outputStream.write(responseBytes);
+            outputStream.flush();
+        }
 
+        outputStream.close();
         httpExchange.close();
     }
 }

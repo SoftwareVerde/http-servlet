@@ -3,6 +3,7 @@ package com.softwareverde.httpserver.endpoint;
 import com.softwareverde.servlet.Servlet;
 import com.softwareverde.servlet.request.Request;
 import com.softwareverde.servlet.response.Response;
+import com.softwareverde.util.Util;
 
 public class EncryptionRedirectEndpoint implements Servlet {
     public static final Integer standardHttpsPort = 443;
@@ -18,7 +19,7 @@ public class EncryptionRedirectEndpoint implements Servlet {
         final String newUrl;
         {
             final String host = request.getHostname();
-            final String url = request.getFilePath() + request.getQueryString();
+            final String url = request.getFilePath() + Util.coalesce(request.getQueryString());
             final Boolean requiresTlsPort = (! _tlsPort.equals(standardHttpsPort));
             newUrl = host + (requiresTlsPort ? ":"+ _tlsPort : "") + url;
         }

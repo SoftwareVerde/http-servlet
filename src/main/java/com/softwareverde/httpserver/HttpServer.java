@@ -2,12 +2,14 @@ package com.softwareverde.httpserver;
 
 import com.softwareverde.httpserver.endpoint.EncryptionRedirectEndpoint;
 import com.softwareverde.httpserver.endpoint.NotFoundJsonEndpoint;
-import com.softwareverde.servlet.Endpoint;
-import com.softwareverde.servlet.Servlet;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.Response;
 import com.softwareverde.security.tls.TlsCertificate;
 import com.softwareverde.security.tls.TlsFactory;
+import com.softwareverde.servlet.Endpoint;
+import com.softwareverde.servlet.Servlet;
+import com.softwareverde.servlet.WebSocketEndpoint;
+import com.softwareverde.servlet.WebSocketServlet;
+import com.softwareverde.servlet.request.Request;
+import com.softwareverde.servlet.response.Response;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.sun.net.httpserver.HttpsConfigurator;
@@ -18,7 +20,7 @@ import javax.net.ssl.SSLContext;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class HttpServer {
@@ -27,7 +29,7 @@ public class HttpServer {
         Boolean isStrictPathEnabled();
     }
 
-    private Map<String, HttpHandler> _endpoints = new HashMap<String, HttpHandler>();
+    private Map<String, com.sun.net.httpserver.HttpHandler> _endpoints = new HashMap<String, com.sun.net.httpserver.HttpHandler>();
 
     private com.sun.net.httpserver.HttpServer _server;
     private Integer _port = 80;
@@ -39,6 +41,8 @@ public class HttpServer {
     private Boolean _redirectToTls = false;
     private String _certificateFile = null;
     private String _certificateKeyFile = null;
+    private final Integer _maxConnectionCount;
+    private final Integer _maxWebSocketPacketByteCount;
 
     private Servlet _defaultEndpoint = new NotFoundJsonEndpoint();
     private EncryptionRedirectEndpoint _encryptionRedirectEndpoint = new EncryptionRedirectEndpoint();
@@ -54,15 +58,25 @@ public class HttpServer {
         }
     }
 
-    public void HttpServer() {
+    public HttpServer() {
         _encryptionRedirectEndpoint.setTlsPort(_tlsPort);
+        _maxConnectionCount = 256;
+        _maxWebSocketPacketByteCount = 8192;
     }
 
     /**
-     * Define a RequestHandler to fulfill any requests matched by the endpoint.
-     *  Setting this value after HttpServer.start() has been invoked will have no effect.
-     * @param endpoint  - The string endpoint. (i.e. "/", or "/api")
-     * @param endpoint   - The handler to fulfill the request.
+     * @param maxConnectionCount The max number of concurrent HTTP/HTTPS connections to the server.
+     * @param webSocketPacketMaxByteCount The max number of bytes for a single inbound WebSocket Frame.
+     */
+    public HttpServer(final Integer maxConnectionCount, final Integer webSocketPacketMaxByteCount) {
+        _encryptionRedirectEndpoint.setTlsPort(_tlsPort);
+        _maxConnectionCount = maxConnectionCount;
+        _maxWebSocketPacketByteCount = webSocketPacketMaxByteCount;
+    }
+
+    /**
+     * Define an Endpoint to fulfill any requests matched by the endpoint path.
+     *  NOTE: Setting this value after HttpServer.start() has been invoked will have no effect.
      */
     public void addEndpoint(final Endpoint endpoint) {
         final String path = endpoint.getPath();
@@ -70,6 +84,18 @@ public class HttpServer {
         final Boolean shouldUseStrictPath = endpoint.shouldUseStrictPath();
 
         _endpoints.put(path, new HttpHandler(servlet, shouldUseStrictPath));
+    }
+
+    /**
+     * Define an Endpoint to handle new WebSocket requests to the provided endpoint path.
+     *  NOTE: Setting this value after HttpServer.start() has been invoked will have no effect.
+     */
+    public void addEndpoint(final WebSocketEndpoint endpoint) {
+        final String path = endpoint.getPath();
+        final WebSocketServlet servlet = endpoint.getServlet();
+        final Boolean shouldUseStrictPath = endpoint.shouldUseStrictPath();
+
+        _endpoints.put(path, new WebSocketHandler(servlet, shouldUseStrictPath, _maxWebSocketPacketByteCount));
     }
 
     /**
@@ -124,11 +150,10 @@ public class HttpServer {
 
     public Boolean start() {
         try {
-            final Integer maxQueue = 256;
-            final Executor executor = Executors.newFixedThreadPool(maxQueue);
+            final ExecutorService executor = Executors.newFixedThreadPool(_maxConnectionCount);
 
             if (_useEncryption) {
-                final HttpsServer httpsServer = HttpsServer.create(new InetSocketAddress(_tlsPort), maxQueue);
+                final HttpsServer httpsServer = HttpsServer.create(new InetSocketAddress(_tlsPort), _maxConnectionCount);
                 final TlsCertificate tlsCertificate = TlsFactory.loadTlsCertificate(StringUtil.bytesToString(IoUtil.getFileContents(_certificateFile)), IoUtil.getFileContents(_certificateKeyFile));
                 final SSLContext sslContext = TlsFactory.createContext(tlsCertificate);
 
@@ -148,7 +173,7 @@ public class HttpServer {
             }
 
             if (! _disableHttp) {
-                _server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(_port), maxQueue);
+                _server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(_port), _maxConnectionCount);
 
                 if (_redirectToTls) {
                     _server.createContext("/", new HttpHandler(_encryptionRedirectEndpoint, false));
@@ -163,8 +188,8 @@ public class HttpServer {
 
             return true;
         }
-        catch (final Exception e) {
-            e.printStackTrace();
+        catch (final Exception exception) {
+            exception.printStackTrace();
             return false;
         }
     }
@@ -174,5 +199,8 @@ public class HttpServer {
         if (_tlsServer != null) {
             _tlsServer.stop(0);
         }
+
+        final ExecutorService executorService = ((ExecutorService) _server.getExecutor());
+        executorService.shutdown();
     }
 }
