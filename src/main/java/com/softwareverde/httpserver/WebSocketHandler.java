@@ -8,13 +8,17 @@ import com.softwareverde.servlet.request.RequestInflater;
 import com.softwareverde.servlet.request.WebSocketRequest;
 import com.softwareverde.servlet.response.Response;
 import com.softwareverde.servlet.response.WebSocketResponse;
+import com.softwareverde.servlet.socket.ConnectionLayer;
 import com.softwareverde.servlet.socket.WebSocket;
 import com.softwareverde.util.ReflectionUtil;
 import com.softwareverde.util.StringUtil;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLEngineResult;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.channels.SocketChannel;
@@ -79,31 +83,46 @@ class WebSocketHandler implements com.sun.net.httpserver.HttpHandler {
             }
         }
 
-        Socket rawSocket = null;
-        SocketChannel socketChannel = null;
         DelayedOutputStream delayedOutputStream = null;
-
+        ConnectionLayer connectionLayer = null;
         try {
             // HttpExchange does not behave correctly when the 101 ResponseCode is used to upgrade the connection;
             //  the most prominent issue is that it sends a Content-Length: 0 header, which causes the client to close.
             //  Therefore, we access the rawInputStream ("ris") and rawOutputStream ("ros") of the underlying implementation
             //  and trick the HttpExchange into behaving correctly.
+            // HttpExchange Source: http://www.docjar.com/html/api/sun/net/httpserver/ExchangeImpl.java.html
             final Object httpExchangeImplementation = ReflectionUtil.getValue(httpExchange, "impl");
-            // final InputStream rawInputStream = ReflectionUtil.getValue(httpExchangeImplementation, "ris");
-            // final OutputStream rawOutputStream = ReflectionUtil.getValue(httpExchangeImplementation, "ros");
             final Object httpConnection = ReflectionUtil.getValue(httpExchangeImplementation, "connection");
-            socketChannel = ReflectionUtil.getValue(httpConnection, "chan");
-            rawSocket = socketChannel.socket();
+
+            // final SSLEngine sslEngine = ReflectionUtil.invoke(httpConnection, "getSSLEngine");
+            InputStream sslInputStream = null;
+            OutputStream sslOutputStream = null;
+            final Object sslStreams = ReflectionUtil.getValue(httpConnection, "sslStreams");
+            if (sslStreams != null) {
+                sslInputStream = ReflectionUtil.invoke(sslStreams, "getInputStream");
+                sslOutputStream = ReflectionUtil.invoke(sslStreams, "getOutputStream");
+            }
+
+            final SocketChannel socketChannel = ReflectionUtil.getValue(httpConnection, "chan");
+            final Socket rawSocket = socketChannel.socket();
+            final InputStream rawInputStream = rawSocket.getInputStream();
             final OutputStream rawOutputStream = rawSocket.getOutputStream();
 
-            delayedOutputStream = new DelayedOutputStream(rawOutputStream);
+            delayedOutputStream = new DelayedOutputStream(sslOutputStream != null ? sslOutputStream : rawOutputStream);
             ReflectionUtil.setValue(httpExchangeImplementation, "ros", delayedOutputStream);
+
+            if ( (sslInputStream != null) && (sslOutputStream != null)) {
+                connectionLayer = ConnectionLayer.newSecureConnectionLayer(rawSocket, sslInputStream, sslOutputStream);
+            }
+            else {
+                connectionLayer = ConnectionLayer.newConnectionLayer(rawSocket);
+            }
         }
         catch (final Exception exception) {
             Log.error("Error initializing Web Socket.", exception);
         }
 
-        if ( (rawSocket == null) || (delayedOutputStream == null) ) {
+        if (connectionLayer == null) {
             response = Util.createJsonErrorResponse(Response.ResponseCodes.SERVER_ERROR, "Server error.  Unable to initialize Web Socket.");
             shouldUpgradeToWebSocket = false;
         }
@@ -145,17 +164,23 @@ class WebSocketHandler implements com.sun.net.httpserver.HttpHandler {
         }
 
         if (shouldUpgradeToWebSocket) {
-            httpExchange.sendResponseHeaders(response.getCode(), 0);
-            final String payload = StringUtil.bytesToString(delayedOutputStream.getDelayedPayload());
-            final String newPayload = payload.replaceFirst("HTTP/1.1 200[^\\r\\n]*\\r\\n", "HTTP/1.1 101 Switching Protocols\r\n");
-            delayedOutputStream.clearDelayedPayload();
-            delayedOutputStream.resume();
-            delayedOutputStream.write(StringUtil.stringToBytes(newPayload));
-            delayedOutputStream.flush();
+            { // Hack the HttpExchange to work around the HTTP 101 bug that closes the socket with a Content-Length header...
+                httpExchange.sendResponseHeaders(response.getCode(), 0);
+                final String payload = StringUtil.bytesToString(delayedOutputStream.getDelayedPayload());
+                final String newPayload = payload.replaceFirst("HTTP/1.1 200[^\\r\\n]*\\r\\n", "HTTP/1.1 101 Switching Protocols\r\n");
+                delayedOutputStream.clearDelayedPayload();
+                delayedOutputStream.resume();
+                delayedOutputStream.write(StringUtil.stringToBytes(newPayload));
+                delayedOutputStream.flush();
+            }
 
-            rawSocket.setKeepAlive(true);
-            rawSocket.setTcpNoDelay(true);
-            final WebSocket webSocket = new WebSocket(webSocketId, socketChannel, _maxPacketByteCount);
+            { // Configure the raw socket...
+                final Socket socket = connectionLayer.getSocket();
+                socket.setKeepAlive(true);
+                socket.setTcpNoDelay(true);
+            }
+
+            final WebSocket webSocket = new WebSocket(webSocketId, WebSocket.Mode.SERVER, connectionLayer, _maxPacketByteCount);
             _servlet.onNewWebSocket(webSocket);
         }
         else {
