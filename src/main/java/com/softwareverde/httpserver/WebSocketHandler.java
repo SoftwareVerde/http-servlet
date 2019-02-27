@@ -15,8 +15,6 @@ import com.softwareverde.util.StringUtil;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.SSLEngineResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
