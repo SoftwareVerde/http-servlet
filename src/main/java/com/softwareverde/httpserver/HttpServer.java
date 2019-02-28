@@ -148,6 +148,11 @@ public class HttpServer {
      */
     public void redirectToTls(final Boolean forceEncryption) { _redirectToTls = forceEncryption; }
 
+    public void redirectToTls(final Boolean forceEncryption, final Integer externalTlsPort) {
+        _redirectToTls = forceEncryption;
+        _encryptionRedirectEndpoint.setTlsPort(externalTlsPort);
+    }
+
     public Boolean start() {
         try {
             final ExecutorService executor = Executors.newFixedThreadPool(_maxConnectionCount);
