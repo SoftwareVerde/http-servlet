@@ -18,7 +18,9 @@ import com.sun.net.httpserver.HttpsServer;
 
 import javax.net.ssl.SSLContext;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,25 +31,25 @@ public class HttpServer {
         Boolean isStrictPathEnabled();
     }
 
-    private Map<String, com.sun.net.httpserver.HttpHandler> _endpoints = new HashMap<String, com.sun.net.httpserver.HttpHandler>();
+    protected Map<String, com.sun.net.httpserver.HttpHandler> _endpoints = new HashMap<String, com.sun.net.httpserver.HttpHandler>();
 
-    private com.sun.net.httpserver.HttpServer _server;
-    private Integer _port = 80;
-    private Boolean _disableHttp = false;
+    protected com.sun.net.httpserver.HttpServer _server;
+    protected Integer _port = 80;
+    protected Boolean _disableHttp = false;
 
-    private com.sun.net.httpserver.HttpServer _tlsServer;
-    private Integer _tlsPort = 443;
-    private Boolean _useEncryption = false;
-    private Boolean _redirectToTls = false;
-    private String _certificateFile = null;
-    private String _certificateKeyFile = null;
-    private final Integer _maxConnectionCount;
-    private final Integer _maxWebSocketPacketByteCount;
+    protected com.sun.net.httpserver.HttpServer _tlsServer;
+    protected Integer _tlsPort = 443;
+    protected Boolean _useEncryption = false;
+    protected Boolean _redirectToTls = false;
+    protected final List<String> _certificateFiles = new ArrayList<String>();
+    protected final List<String> _certificateKeyFiles = new ArrayList<String>();
+    protected final Integer _maxConnectionCount;
+    protected final Integer _maxWebSocketPacketByteCount;
 
-    private Servlet _defaultEndpoint = new NotFoundJsonEndpoint();
-    private EncryptionRedirectEndpoint _encryptionRedirectEndpoint = new EncryptionRedirectEndpoint();
+    protected Servlet _defaultEndpoint = new NotFoundJsonEndpoint();
+    protected EncryptionRedirectEndpoint _encryptionRedirectEndpoint = new EncryptionRedirectEndpoint();
 
-    private void _applyEndpoints(final com.sun.net.httpserver.HttpServer httpServer) {
+    protected void _applyEndpoints(final com.sun.net.httpserver.HttpServer httpServer) {
         for (final String endpointUri : _endpoints.keySet()) {
             final com.sun.net.httpserver.HttpHandler handler = _endpoints.get(endpointUri);
             httpServer.createContext(endpointUri, handler);
@@ -138,8 +140,18 @@ public class HttpServer {
      *                                Use ./ssl/pem2pkcs.sh to convert an RSA key to PKCS12.
      */
     public void setCertificate(final String tlsCertificateFile, final String tlsCertificateKeyFile) {
-        _certificateFile = tlsCertificateFile;
-        _certificateKeyFile = tlsCertificateKeyFile;
+        _certificateFiles.clear();
+        _certificateKeyFiles.clear();
+
+        _certificateFiles.add(tlsCertificateFile);
+        _certificateKeyFiles.add(tlsCertificateKeyFile);
+    }
+
+    public void addCertificate(final String tlsCertificateFile, final String tlsCertificateKeyFile) {
+        if ( (tlsCertificateFile == null) || (tlsCertificateKeyFile == null) ) { throw new NullPointerException("Secondary TLS Certificates cannot be null."); }
+
+        _certificateFiles.add(tlsCertificateFile);
+        _certificateKeyFiles.add(tlsCertificateKeyFile);
     }
 
     /**
@@ -153,20 +165,44 @@ public class HttpServer {
         _encryptionRedirectEndpoint.setTlsPort(externalTlsPort);
     }
 
+    protected void _loadCertificate(final TlsFactory tlsFactory, final String certificateFile, final String certificateKeyFile) {
+        if (certificateFile == null || certificateKeyFile == null) { return; }
+
+        final byte[] certificateBytes = IoUtil.getFileContents(certificateFile);
+        final byte[] certificateKeyFileBytes = IoUtil.getFileContents(certificateKeyFile);
+        if ( (certificateBytes == null) || (certificateKeyFileBytes == null) ) {
+            System.out.println("Error loading certificate: " + certificateFile + ", " + certificateKeyFile);
+            return;
+        }
+
+        tlsFactory.addTlsCertificate(StringUtil.bytesToString(certificateBytes), certificateKeyFileBytes);
+    }
+
     public Boolean start() {
         try {
             final ExecutorService executor = Executors.newFixedThreadPool(_maxConnectionCount);
 
             if (_useEncryption) {
+                final TlsFactory tlsFactory = new TlsFactory();
+
                 final HttpsServer httpsServer = HttpsServer.create(new InetSocketAddress(_tlsPort), _maxConnectionCount);
-                final TlsCertificate tlsCertificate = TlsFactory.loadTlsCertificate(StringUtil.bytesToString(IoUtil.getFileContents(_certificateFile)), IoUtil.getFileContents(_certificateKeyFile));
-                final SSLContext sslContext = TlsFactory.createContext(tlsCertificate);
+                {
+                    for (int i = 0 ; i < _certificateKeyFiles.size(); ++i) {
+                        final String certificateFile = _certificateFiles.get(i);
+                        final String certificateKeyFile = _certificateKeyFiles.get(i);
+
+                        _loadCertificate(tlsFactory, certificateFile, certificateKeyFile);
+                    }
+                }
+
+                final TlsCertificate tlsCertificate = tlsFactory.buildCertificate();
+                final SSLContext sslContext = tlsCertificate.createContext();
 
                 httpsServer.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
                     @Override
-                    public void configure(final HttpsParameters params) {
-                        params.setProtocols(new String[]{ "TLSv1.1", "TLSv1.2", "TLSv1.3" });
-                        params.setNeedClientAuth(false);
+                    public void configure(final HttpsParameters httpsParameters) {
+                        httpsParameters.setProtocols(new String[]{ "TLSv1.1", "TLSv1.2", "TLSv1.3" });
+                        httpsParameters.setNeedClientAuth(false);
                     }
                 });
 
