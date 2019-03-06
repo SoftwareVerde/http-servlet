@@ -1,10 +1,10 @@
-package com.softwareverde.httpserver;
+package com.softwareverde.http.server;
 
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
 
-class Util {
+class Util extends com.softwareverde.util.Util {
     protected Util() { }
 
     public static JsonResponse createJsonErrorResponse(final Integer responseCode, final String errorMessage) {
@@ -12,6 +12,6 @@ class Util {
         json.put("wasSuccess", false);
         json.put("errorCode", responseCode);
         json.put("errorMessage", errorMessage);
-        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, json);
+        return new JsonResponse(Response.Codes.SERVER_ERROR, json);
     }
 }

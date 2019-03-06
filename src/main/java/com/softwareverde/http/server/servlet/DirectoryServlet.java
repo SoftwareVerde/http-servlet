@@ -1,9 +1,8 @@
-package com.softwareverde.httpserver;
+package com.softwareverde.http.server.servlet;
 
-import com.softwareverde.servlet.Servlet;
-import com.softwareverde.servlet.content.ContentTypeResolver;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.Response;
+import com.softwareverde.http.server.servlet.content.ContentTypeResolver;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.util.IoUtil;
 
 import java.io.File;
@@ -104,7 +103,7 @@ public class DirectoryServlet implements Servlet {
                     response.addHeader(Response.Headers.CONTENT_TYPE, contentType);
                 }
 
-                response.setCode(Response.ResponseCodes.OK);
+                response.setCode(Response.Codes.OK);
                 response.setContent(IoUtil.getFileContents(servedFile));
 
                 return response;
@@ -112,7 +111,7 @@ public class DirectoryServlet implements Servlet {
         }
 
         final Response response = new Response();
-        response.setCode(Response.ResponseCodes.NOT_FOUND);
+        response.setCode(Response.Codes.NOT_FOUND);
         response.setContent("Not found.");
         return response;
     }

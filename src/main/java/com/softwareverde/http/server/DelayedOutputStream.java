@@ -1,4 +1,4 @@
-package com.softwareverde.httpserver;
+package com.softwareverde.http.server;
 
 import java.io.IOException;
 import java.io.OutputStream;

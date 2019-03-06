@@ -1,15 +1,15 @@
-package com.softwareverde.httpserver;
+package com.softwareverde.http.server;
 
 import com.softwareverde.http.cookie.Cookie;
 import com.softwareverde.http.cookie.CookieParser;
+import com.softwareverde.http.server.servlet.WebSocketServlet;
+import com.softwareverde.http.server.servlet.request.RequestInflater;
+import com.softwareverde.http.server.servlet.request.WebSocketRequest;
+import com.softwareverde.http.server.servlet.response.Response;
+import com.softwareverde.http.server.servlet.response.WebSocketResponse;
+import com.softwareverde.http.websocket.ConnectionLayer;
+import com.softwareverde.http.websocket.WebSocket;
 import com.softwareverde.logging.Log;
-import com.softwareverde.servlet.WebSocketServlet;
-import com.softwareverde.servlet.request.RequestInflater;
-import com.softwareverde.servlet.request.WebSocketRequest;
-import com.softwareverde.servlet.response.Response;
-import com.softwareverde.servlet.response.WebSocketResponse;
-import com.softwareverde.servlet.socket.ConnectionLayer;
-import com.softwareverde.servlet.socket.WebSocket;
 import com.softwareverde.util.ReflectionUtil;
 import com.softwareverde.util.StringUtil;
 import com.sun.net.httpserver.Headers;
@@ -52,13 +52,13 @@ class WebSocketHandler implements com.sun.net.httpserver.HttpHandler {
         Response response;
         {
             if ( (_shouldUseStrictPathMatching) && (! pathIsStrictMatch) ) {
-                response = Util.createJsonErrorResponse(Response.ResponseCodes.NOT_FOUND, "Not found.");
+                response = Util.createJsonErrorResponse(Response.Codes.NOT_FOUND, "Not found.");
             }
             else {
                 final RequestInflater requestInflater = new RequestInflater();
                 final WebSocketRequest webSocketRequest = requestInflater.createWebSocketRequest(httpExchange);
                 if (webSocketRequest == null) {
-                    response = Util.createJsonErrorResponse(Response.ResponseCodes.SERVER_ERROR, "Bad request.");
+                    response = Util.createJsonErrorResponse(Response.Codes.SERVER_ERROR, "Bad request.");
                 }
                 else {
                     try {
@@ -75,7 +75,7 @@ class WebSocketHandler implements com.sun.net.httpserver.HttpHandler {
                         shouldUpgradeToWebSocket = false;
                         webSocketKey = null;
                         webSocketId = null;
-                        response = Util.createJsonErrorResponse(Response.ResponseCodes.SERVER_ERROR, "Server error.");
+                        response = Util.createJsonErrorResponse(Response.Codes.SERVER_ERROR, "Server error.");
                     }
                 }
             }
@@ -121,14 +121,14 @@ class WebSocketHandler implements com.sun.net.httpserver.HttpHandler {
         }
 
         if (connectionLayer == null) {
-            response = Util.createJsonErrorResponse(Response.ResponseCodes.SERVER_ERROR, "Server error.  Unable to initialize Web Socket.");
+            response = Util.createJsonErrorResponse(Response.Codes.SERVER_ERROR, "Server error.  Unable to initialize Web Socket.");
             shouldUpgradeToWebSocket = false;
         }
 
         if (shouldUpgradeToWebSocket) { // Update the Response for the WebSocket Upgrade...
             // NOTE: Faking a 200 ResponseCode so that the HttpExchange behaves correctly.  The correct ResponseCode is replaced later.
             //  Setting the ResponseCode to OK prevents a content-length header from being sent and also does not close the streams.
-            response.setCode(Response.ResponseCodes.OK);
+            response.setCode(Response.Codes.OK);
             response.setHeader(Response.Headers.UPGRADE, Response.Headers.WebSocket.Values.UPGRADE);
             response.setHeader(Response.Headers.CONNECTION, Response.Headers.WebSocket.Values.CONNECTION);
             response.setHeader(Response.Headers.WebSocket.ACCEPT, Response.Headers.WebSocket.Values.createAcceptHeader(webSocketKey));

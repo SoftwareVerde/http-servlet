@@ -1,11 +1,11 @@
-package com.softwareverde.httpserver;
+package com.softwareverde.http.server;
 
 import com.softwareverde.http.cookie.Cookie;
 import com.softwareverde.http.cookie.CookieParser;
-import com.softwareverde.servlet.Servlet;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.request.RequestInflater;
-import com.softwareverde.servlet.response.Response;
+import com.softwareverde.http.server.servlet.Servlet;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.request.RequestInflater;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 
@@ -59,13 +59,13 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         final Response response;
         {
             if ( (_shouldUseStrictPathMatching) && (! pathIsStrictMatch) ) {
-                response = Util.createJsonErrorResponse(Response.ResponseCodes.NOT_FOUND, "Not found.");
+                response = Util.createJsonErrorResponse(Response.Codes.NOT_FOUND, "Not found.");
             }
             else {
                 final RequestInflater requestInflater = new RequestInflater();
                 final Request request = requestInflater.createRequest(httpExchange);
                 if (request == null) {
-                    response = Util.createJsonErrorResponse(Response.ResponseCodes.SERVER_ERROR, "Bad request.");
+                    response = Util.createJsonErrorResponse(Response.Codes.SERVER_ERROR, "Bad request.");
                 }
                 else {
                     Response requestHandlerResponse;
@@ -77,7 +77,7 @@ class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                             System.err.println("\n-- Error handling request: " + httpExchange.getRequestURI());
                             exception.printStackTrace();
                             System.err.println("--\n");
-                            requestHandlerResponse = Util.createJsonErrorResponse(Response.ResponseCodes.SERVER_ERROR, "Server error.");
+                            requestHandlerResponse = Util.createJsonErrorResponse(Response.Codes.SERVER_ERROR, "Server error.");
                         }
                     }
                     response = requestHandlerResponse;

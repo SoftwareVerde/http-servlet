@@ -1,14 +1,13 @@
-package com.softwareverde.httpserver.endpoint;
+package com.softwareverde.http.server.servlet;
 
-import com.softwareverde.servlet.Servlet;
-import com.softwareverde.servlet.request.Headers;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.Response;
+import com.softwareverde.http.server.servlet.request.Headers;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.util.Util;
 
 import java.util.List;
 
-public class EncryptionRedirectEndpoint implements Servlet {
+public class EncryptionRedirectServlet implements Servlet {
     public static final Integer standardHttpsPort = 443;
 
     protected Integer _tlsPort = 443;
@@ -49,7 +48,7 @@ public class EncryptionRedirectEndpoint implements Servlet {
         }
 
         response.addHeader("Location", "https://"+ newUrl);
-        response.setCode(Response.ResponseCodes.MOVED_PERMANENTLY);
+        response.setCode(Response.Codes.MOVED_PERMANENTLY);
         response.setContent("Location: https://"+ newUrl);
         return response;
     }

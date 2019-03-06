@@ -1,15 +1,12 @@
-package com.softwareverde.httpserver;
+package com.softwareverde.http.server;
 
-import com.softwareverde.httpserver.endpoint.EncryptionRedirectEndpoint;
-import com.softwareverde.httpserver.endpoint.NotFoundJsonEndpoint;
-import com.softwareverde.security.tls.TlsCertificate;
-import com.softwareverde.security.tls.TlsFactory;
-import com.softwareverde.servlet.Endpoint;
-import com.softwareverde.servlet.Servlet;
-import com.softwareverde.servlet.WebSocketEndpoint;
-import com.softwareverde.servlet.WebSocketServlet;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.Response;
+import com.softwareverde.http.server.endpoint.Endpoint;
+import com.softwareverde.http.server.endpoint.WebSocketEndpoint;
+import com.softwareverde.http.server.servlet.*;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.Response;
+import com.softwareverde.http.tls.TlsCertificate;
+import com.softwareverde.http.tls.TlsFactory;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.sun.net.httpserver.HttpsConfigurator;
@@ -46,8 +43,8 @@ public class HttpServer {
     protected final Integer _maxConnectionCount;
     protected final Integer _maxWebSocketPacketByteCount;
 
-    protected Servlet _defaultEndpoint = new NotFoundJsonEndpoint();
-    protected EncryptionRedirectEndpoint _encryptionRedirectEndpoint = new EncryptionRedirectEndpoint();
+    protected Servlet _defaultEndpoint = new NotFoundJsonServlet();
+    protected EncryptionRedirectServlet _encryptionRedirectServlet = new EncryptionRedirectServlet();
 
     protected void _applyEndpoints(final com.sun.net.httpserver.HttpServer httpServer) {
         for (final String endpointUri : _endpoints.keySet()) {
@@ -61,7 +58,7 @@ public class HttpServer {
     }
 
     public HttpServer() {
-        _encryptionRedirectEndpoint.setTlsPort(_tlsPort);
+        _encryptionRedirectServlet.setTlsPort(_tlsPort);
         _maxConnectionCount = 256;
         _maxWebSocketPacketByteCount = 8192;
     }
@@ -71,7 +68,7 @@ public class HttpServer {
      * @param webSocketPacketMaxByteCount The max number of bytes for a single inbound WebSocket Frame.
      */
     public HttpServer(final Integer maxConnectionCount, final Integer webSocketPacketMaxByteCount) {
-        _encryptionRedirectEndpoint.setTlsPort(_tlsPort);
+        _encryptionRedirectServlet.setTlsPort(_tlsPort);
         _maxConnectionCount = maxConnectionCount;
         _maxWebSocketPacketByteCount = webSocketPacketMaxByteCount;
     }
@@ -121,7 +118,7 @@ public class HttpServer {
      */
     public void setTlsPort(final Integer tlsPort) {
         _tlsPort = tlsPort;
-        _encryptionRedirectEndpoint.setTlsPort(_tlsPort);
+        _encryptionRedirectServlet.setTlsPort(_tlsPort);
     }
 
     /**
@@ -162,7 +159,7 @@ public class HttpServer {
 
     public void redirectToTls(final Boolean forceEncryption, final Integer externalTlsPort) {
         _redirectToTls = forceEncryption;
-        _encryptionRedirectEndpoint.setTlsPort(externalTlsPort);
+        _encryptionRedirectServlet.setTlsPort(externalTlsPort);
     }
 
     protected void _loadCertificate(final TlsFactory tlsFactory, final String certificateFile, final String certificateKeyFile) {
@@ -217,7 +214,7 @@ public class HttpServer {
                 _server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(_port), _maxConnectionCount);
 
                 if (_redirectToTls) {
-                    _server.createContext("/", new HttpHandler(_encryptionRedirectEndpoint, false));
+                    _server.createContext("/", new HttpHandler(_encryptionRedirectServlet, false));
                 }
                 else {
                     _applyEndpoints(_server);
