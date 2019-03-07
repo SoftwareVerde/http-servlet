@@ -121,6 +121,9 @@ public class RequestInflater {
     public WebSocketRequest createWebSocketRequest(final HttpExchange httpExchange) {
         final WebSocketRequest webSocketRequest = new WebSocketRequest();
         _buildCoreRequest(webSocketRequest, httpExchange);
+        if (! webSocketRequest.isWebSocketRequest()) { // Consume the InputStream if the request is not intended to be a WebSocket...
+            _buildRequestBody(webSocketRequest, httpExchange);
+        }
         return webSocketRequest;
     }
 }

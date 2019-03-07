@@ -31,10 +31,6 @@ public class ProxyServlet implements WebSocketServlet {
         }
     }
 
-    protected boolean _isWebSocketHeader(final String headerKey, final String headerValue) {
-        return (Util.areEqual("upgrade", Util.coalesce(headerKey).toLowerCase()) && Util.areEqual("websocket", Util.coalesce(headerValue).toLowerCase()));
-    }
-
     protected final ConcurrentHashMap<Long, WebSocket> _proxiedWebSockets = new ConcurrentHashMap<Long, WebSocket>();
     protected final HashMap<String, Url> _proxyConfiguration = new HashMap<String, Url>();
 
@@ -78,7 +74,6 @@ public class ProxyServlet implements WebSocketServlet {
         httpRequest.setFollowsRedirects(true);
         httpRequest.setValidateSslCertificates(false);
 
-        Boolean isWebSocketRequest = false;
         final Headers headers = request.getHeaders();
         for (final String headerKey : headers.getHeaderNames()) {
             String separator = "";
@@ -87,10 +82,6 @@ public class ProxyServlet implements WebSocketServlet {
                 headerBuilder.append(separator);
                 headerBuilder.append(headerValue);
                 separator = "; ";
-
-                if (_isWebSocketHeader(headerKey, headerValue)) {
-                    isWebSocketRequest = true;
-                }
             }
 
             httpRequest.setHeader(headerKey, headerBuilder.toString());
@@ -101,6 +92,7 @@ public class ProxyServlet implements WebSocketServlet {
         httpRequest.setQueryString(getParameters.toString());
         httpRequest.setRequestData(postData);
 
+        final Boolean isWebSocketRequest = request.isWebSocketRequest();
         if (isWebSocketRequest) {
             httpRequest.setAllowWebSocketUpgrade(true);
         }

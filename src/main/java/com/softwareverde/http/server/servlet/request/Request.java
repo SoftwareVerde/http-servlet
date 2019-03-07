@@ -15,6 +15,13 @@ public class Request {
         String getHostName();
     }
 
+    /**
+     * Returns true if the header is a WebSocket initialization header (aka: "Upgrade WebSocket").
+     */
+    public static Boolean isWebSocketHeader(final String headerKey, final String headerValue) {
+        return (Util.areEqual("upgrade", Util.coalesce(headerKey).toLowerCase()) && Util.areEqual("websocket", Util.coalesce(headerValue).toLowerCase()));
+    }
+
     protected HostNameLookup _hostname; // The hostname of the server. (e.x.: "softwareverde.com")
     protected String _filePath;         // The filepath of the request-url. (e.x.: "/index.html")
     protected HttpMethod _method;

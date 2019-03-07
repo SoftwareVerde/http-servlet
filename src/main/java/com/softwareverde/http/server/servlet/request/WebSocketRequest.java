@@ -17,4 +17,14 @@ public class WebSocketRequest extends Request {
 
         return headerValue;
     }
+
+    public Boolean isWebSocketRequest() {
+        for (final String headerKey : _headers.getHeaderNames()) {
+            for (final String headerValue : _headers.getHeader(headerKey)) {
+                if (Request.isWebSocketHeader(headerKey, headerValue)) { return true; }
+            }
+        }
+
+        return false;
+    }
 }
