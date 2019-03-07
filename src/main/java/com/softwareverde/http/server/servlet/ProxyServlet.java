@@ -92,6 +92,7 @@ public class ProxyServlet implements WebSocketServlet {
                     isWebSocketRequest = true;
                 }
             }
+
             httpRequest.setHeader(headerKey, headerBuilder.toString());
         }
 
@@ -114,7 +115,9 @@ public class ProxyServlet implements WebSocketServlet {
             for (final String headerKey : proxiedHeaders.keySet()) {
                 for (final String headerValue : proxiedHeaders.get(headerKey)) {
                     if (headerKey != null) {
-                        response.addHeader(headerKey, headerValue);
+                        if (! Util.areEqual("sec-websocket-accept", headerKey.toLowerCase())) { // NOTE: Accept Headers for proxied socket should be omitted since they're handled by the upgrade...
+                            response.addHeader(headerKey, headerValue);
+                        }
                     }
                 }
             }
@@ -162,6 +165,7 @@ public class ProxyServlet implements WebSocketServlet {
         proxiedWebSocket.setConnectionClosedCallback(new WebSocket.ConnectionClosedCallback() {
             @Override
             public void onClose(final int code, final String message) {
+                _proxiedWebSockets.remove(externalWebSocket.getId());
                 externalWebSocket.close();
             }
         });
