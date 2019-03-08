@@ -55,6 +55,11 @@ public class TlsFactory {
                     if (domainName == null) { continue; }
 
                     _keyStore.setCertificateEntry(domainName, certificate);
+
+                    // Alias the www certificates with the root certificate...
+                    if (domainName.startsWith("www.")) {
+                        _keyStore.setCertificateEntry(domainName.substring(4), certificate);
+                    }
                 }
             }
 
@@ -75,6 +80,11 @@ public class TlsFactory {
                             if (domainName == null) { continue; }
 
                             _keyStore.setKeyEntry(domainName, privateKey, _keyStorePassword, certificateChain);
+
+                            // Alias the www certificates with the root certificate...
+                            if (domainName.startsWith("www.")) {
+                                _keyStore.setKeyEntry(domainName.substring(4), privateKey, _keyStorePassword, certificateChain);
+                            }
                         }
                     }
                 }
