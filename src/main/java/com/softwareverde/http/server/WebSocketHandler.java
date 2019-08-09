@@ -9,7 +9,7 @@ import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.http.server.servlet.response.WebSocketResponse;
 import com.softwareverde.http.websocket.ConnectionLayer;
 import com.softwareverde.http.websocket.WebSocket;
-import com.softwareverde.logging.Log;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ReflectionUtil;
 import com.softwareverde.util.StringUtil;
 import com.sun.net.httpserver.Headers;
@@ -70,7 +70,7 @@ class WebSocketHandler implements com.sun.net.httpserver.HttpHandler {
                         response = webSocketResponse;
                     }
                     catch (final Exception exception) {
-                        Log.error(this.getClass(), "Error handling request: " + httpExchange.getRequestURI(), exception);
+                        Logger.warn(WebSocketHandler.class, "Error handling request: " + httpExchange.getRequestURI(), exception);
 
                         shouldUpgradeToWebSocket = false;
                         webSocketKey = null;
@@ -117,7 +117,7 @@ class WebSocketHandler implements com.sun.net.httpserver.HttpHandler {
             }
         }
         catch (final Exception exception) {
-            Log.error("Error initializing Web Socket.", exception);
+            Logger.error(WebSocketHandler.class, "Error initializing Web Socket.", exception);
         }
 
         if (connectionLayer == null) {

@@ -6,7 +6,7 @@ import com.softwareverde.http.cookie.CookieParser;
 import com.softwareverde.http.querystring.GetParameters;
 import com.softwareverde.http.querystring.PostParameters;
 import com.softwareverde.http.querystring.QueryStringParser;
-import com.softwareverde.logging.Log;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.sun.net.httpserver.HttpExchange;
@@ -38,7 +38,7 @@ public class RequestInflater {
             request._rawPostData = postBytes;
         }
         catch (final Exception exception) {
-            Log.error("Unable to parse POST parameters.");
+            Logger.warn(RequestInflater.class, "Unable to parse POST parameters.");
         }
     }
 
@@ -97,7 +97,7 @@ public class RequestInflater {
             request._rawQueryString = rawQueryString;
         }
         catch (final Exception exception) {
-            Log.error("Unable to parse GET parameters.", exception);
+            Logger.warn(RequestInflater.class, "Unable to parse GET parameters.", exception);
         }
 
         return request;
