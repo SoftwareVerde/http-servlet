@@ -13,11 +13,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class DirectoryServlet implements Servlet {
+    public interface ErrorHandler {
+        Response onFileNotFound(Request request);
+    }
+
     private final File _rootDirectory;
     private Map<String, File> _servedFiles = null;
     private Boolean _serveRecursive = false;
     private String _indexFile = null;
     private ContentTypeResolver _contentTypeResolver = new ContentTypeResolver();
+    private ErrorHandler _errorHandler;
 
     private void _indexServedFiles(final File directory, final Map<String, File> servedFiles) {
         final File[] directoryFiles = directory.listFiles();
@@ -70,6 +75,10 @@ public class DirectoryServlet implements Servlet {
         _indexFile = indexFile;
     }
 
+    public void setErrorHandler(final ErrorHandler errorHandler) {
+        _errorHandler = errorHandler;
+    }
+
     @Override
     public Response onRequest(final Request request) {
         final String filePath = request.getFilePath();
@@ -108,6 +117,11 @@ public class DirectoryServlet implements Servlet {
 
                 return response;
             }
+        }
+
+        final ErrorHandler errorHandler = _errorHandler;
+        if (errorHandler != null) {
+            return errorHandler.onFileNotFound(request);
         }
 
         final Response response = new Response();
