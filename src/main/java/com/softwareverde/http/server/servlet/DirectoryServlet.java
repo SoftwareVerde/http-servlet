@@ -17,6 +17,64 @@ public class DirectoryServlet implements Servlet {
         Response onFileNotFound(Request request);
     }
 
+    protected Response _serveFilePath(final String filePath, final Request request) {
+        final boolean shouldUseIndexFile = ( (_indexFile != null) && ((filePath.isEmpty()) || (filePath.charAt(filePath.length() - 1) == '/')) );
+
+        final String fileName;
+        {
+            if (_serveRecursive) {
+                fileName = filePath + (shouldUseIndexFile ? _indexFile : "");
+            }
+            else {
+                final StringBuilder pathBuilder = new StringBuilder();
+                try {
+                    pathBuilder.append("/");
+                    pathBuilder.append(
+                        Paths.get(
+                            new URI(filePath)
+                                .getPath()
+                        ).getFileName()
+                    );
+                    pathBuilder.append(shouldUseIndexFile ? _indexFile : "");
+                }
+                catch (final URISyntaxException exception) {
+                    pathBuilder.setLength(0); // Clear the pathBuilder...
+                    pathBuilder.append(filePath);
+                }
+                fileName = pathBuilder.toString();
+            }
+        }
+
+        if (_servedFiles.containsKey(fileName)) {
+            final File servedFile = _servedFiles.get(fileName);
+
+            if (servedFile.isFile()) {
+                final Response response = new Response();
+
+                final String extension = _parseExtension(servedFile.getName());
+                if (_contentTypeResolver.isKnownExtension(extension)) {
+                    final String contentType = _contentTypeResolver.getContentType(extension);
+                    response.addHeader(Response.Headers.CONTENT_TYPE, contentType);
+                }
+
+                response.setCode(Response.Codes.OK);
+                response.setContent(IoUtil.getFileContents(servedFile));
+
+                return response;
+            }
+        }
+
+        final ErrorHandler errorHandler = _errorHandler;
+        if (errorHandler != null) {
+            return errorHandler.onFileNotFound(request);
+        }
+
+        final Response response = new Response();
+        response.setCode(Response.Codes.NOT_FOUND);
+        response.setContent("Not found.");
+        return response;
+    }
+
     private final File _rootDirectory;
     private Map<String, File> _servedFiles = null;
     private Boolean _serveRecursive = false;
@@ -81,52 +139,10 @@ public class DirectoryServlet implements Servlet {
 
     @Override
     public Response onRequest(final Request request) {
-        final String filePath = request.getFilePath();
+        return _serveFilePath(request.getFilePath(), request);
+    }
 
-        final Boolean shouldUseIndexFile = ( (_indexFile != null) && ((filePath.isEmpty()) || (filePath.charAt(filePath.length() - 1) == '/')) );
-
-        final String fileName;
-        {
-            if (_serveRecursive) {
-                fileName = filePath + (shouldUseIndexFile ? _indexFile : "");
-            }
-            else {
-                String tmp = filePath;
-                try {
-                    tmp = "/"+ Paths.get(new URI(filePath).getPath()).getFileName().toString() + (shouldUseIndexFile ? _indexFile : "");
-                }
-                catch (final URISyntaxException e) { }
-                fileName = tmp;
-            }
-        }
-
-        if (_servedFiles.containsKey(fileName)) {
-            final File servedFile = _servedFiles.get(fileName);
-
-            if (servedFile.isFile()) {
-                final Response response = new Response();
-
-                final String extension = _parseExtension(servedFile.getName());
-                if (_contentTypeResolver.isKnownExtension(extension)) {
-                    final String contentType = _contentTypeResolver.getContentType(extension);
-                    response.addHeader(Response.Headers.CONTENT_TYPE, contentType);
-                }
-
-                response.setCode(Response.Codes.OK);
-                response.setContent(IoUtil.getFileContents(servedFile));
-
-                return response;
-            }
-        }
-
-        final ErrorHandler errorHandler = _errorHandler;
-        if (errorHandler != null) {
-            return errorHandler.onFileNotFound(request);
-        }
-
-        final Response response = new Response();
-        response.setCode(Response.Codes.NOT_FOUND);
-        response.setContent("Not found.");
-        return response;
+    public Response serveFile(final String filePath, final Request originalRequest) {
+        return _serveFilePath(filePath, originalRequest);
     }
 }
