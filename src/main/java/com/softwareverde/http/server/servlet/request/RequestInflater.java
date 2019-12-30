@@ -34,8 +34,8 @@ public class RequestInflater {
     protected void _buildRequestBody(final Request request, final HttpExchange httpExchange) {
         try {
             final byte[] postBytes = IoUtil.readStream(httpExchange.getRequestBody());
-            request._postParameters = POST_PARAMETERS_PARSER.parse(StringUtil.bytesToString(postBytes));
             request._rawPostData = postBytes;
+            request._postParameters = POST_PARAMETERS_PARSER.parse(StringUtil.bytesToString(postBytes));
         }
         catch (final Exception exception) {
             Logger.warn(RequestInflater.class, "Unable to parse POST parameters.");
