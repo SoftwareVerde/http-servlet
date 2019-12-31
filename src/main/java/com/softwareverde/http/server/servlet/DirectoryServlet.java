@@ -17,6 +17,21 @@ public class DirectoryServlet implements Servlet {
         Response onFileNotFound(Request request);
     }
 
+    protected Response _serveRawFile(final File file) {
+        final Response response = new Response();
+
+        final String extension = _parseExtension(file.getName());
+        if (_contentTypeResolver.isKnownExtension(extension)) {
+            final String contentType = _contentTypeResolver.getContentType(extension);
+            response.addHeader(Response.Headers.CONTENT_TYPE, contentType);
+        }
+
+        response.setCode(Response.Codes.OK);
+        response.setContent(IoUtil.getFileContents(file));
+
+        return response;
+    }
+
     protected Response _serveFilePath(final String filePath, final Request request) {
         final boolean shouldUseIndexFile = ( (_indexFile != null) && ((filePath.isEmpty()) || (filePath.charAt(filePath.length() - 1) == '/')) );
 
@@ -47,20 +62,8 @@ public class DirectoryServlet implements Servlet {
 
         if (_servedFiles.containsKey(fileName)) {
             final File servedFile = _servedFiles.get(fileName);
-
             if (servedFile.isFile()) {
-                final Response response = new Response();
-
-                final String extension = _parseExtension(servedFile.getName());
-                if (_contentTypeResolver.isKnownExtension(extension)) {
-                    final String contentType = _contentTypeResolver.getContentType(extension);
-                    response.addHeader(Response.Headers.CONTENT_TYPE, contentType);
-                }
-
-                response.setCode(Response.Codes.OK);
-                response.setContent(IoUtil.getFileContents(servedFile));
-
-                return response;
+                return _serveRawFile(servedFile);
             }
         }
 
@@ -142,7 +145,23 @@ public class DirectoryServlet implements Servlet {
         return _serveFilePath(request.getFilePath(), request);
     }
 
-    public Response serveFile(final String filePath, final Request originalRequest) {
-        return _serveFilePath(filePath, originalRequest);
+    public Response serveFile(final String filePath, final Request request) {
+        return _serveFilePath(filePath, request);
+    }
+
+    public Response serveFile(final File file, final Request request) {
+        if (file.isFile() && file.canRead()) {
+            return _serveRawFile(file);
+        }
+
+        final ErrorHandler errorHandler = _errorHandler;
+        if (errorHandler != null) {
+            return errorHandler.onFileNotFound(request);
+        }
+
+        final Response response = new Response();
+        response.setCode(Response.Codes.NOT_FOUND);
+        response.setContent("Not found.");
+        return response;
     }
 }

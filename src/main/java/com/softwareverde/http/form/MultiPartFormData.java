@@ -1,19 +1,31 @@
 package com.softwareverde.http.form;
 
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.http.util.StringUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
-import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-public class MultipartParser {
-    public static class MultiPart {
+public class MultiPartFormData {
+    public static class MultiPartRequest {
+        public final Map<String, String> headers = new HashMap<String, String>();
+        public final byte[] payload;
+
+        public MultiPartRequest(final byte[] payload) {
+            this.payload = payload;
+        }
+    }
+
+    public static class Part {
         public enum ContentDisposition {
             INLINE("inline"),
             ATTACHMENT("attachment"),
@@ -54,7 +66,7 @@ public class MultipartParser {
         protected String _name;
         protected String _filename;
         protected String _contentType;
-        protected byte[] _data;
+        protected ByteArray _data;
 
         protected String _creationDate;
         protected String _modificationDate;
@@ -63,13 +75,14 @@ public class MultipartParser {
         protected String _voice;
         protected String _handling;
 
-        public MultiPart() { }
+        public Part() { }
 
         public void setName(final String name) { _name = name; }
         public void setContentDisposition(final ContentDisposition contentDisposition) { _contentDisposition = contentDisposition; }
         public void setFilename(final String filename) { _filename = filename; }
         public void setContentType(final String contentType) { _contentType = contentType; }
-        public void setData(final byte[] data) { _data = data; }
+        public void setData(final byte[] data) { _data = new ImmutableByteArray(data); }
+        public void setData(final ByteArray data) { _data = data; }
         public void setCreationDate(final String creationDate) { _creationDate = creationDate; }
         public void setModificationDate(final String modificationDate) { _modificationDate = modificationDate; }
         public void setReadDate(final String readDate) { _readDate = readDate; }
@@ -79,7 +92,7 @@ public class MultipartParser {
         public String getName() { return _name; }
         public String getFilename() { return _filename; }
         public String getContentType() { return _contentType; }
-        public byte[] getData() { return _data; }
+        public ByteArray getData() { return _data; }
         public String getCreationDate() { return _creationDate; }
         public String getModificationDate() { return _modificationDate; }
         public String getReadDate() { return _readDate; }
@@ -96,7 +109,7 @@ public class MultipartParser {
         }
     }
 
-    protected static String _generateRandomBoundary() {
+    protected static String generateRandomBoundary() {
         final int boundaryStartLength = 4;
         final int boundaryIdentifierLength = 32;
         final char[] candidateCharacters = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','0','1','2','3','4','5','6','7','8','9'};
@@ -114,15 +127,13 @@ public class MultipartParser {
         return boundary.toString();
     }
 
-    protected final ArrayList<MultiPart> _multiParts = new ArrayList<MultiPart>();
-
-    protected static Boolean _doesDataContainData(final byte[] needle, final byte[] haystack) {
+    protected static Boolean doesDataContainData(final byte[] needle, final ByteArray haystack) {
         int matchedLength = 0;
-        for (int i = 0; i < haystack.length; ++i) {
+        for (int i = 0; i < haystack.getByteCount(); ++i) {
             if (matchedLength >= needle.length) { return true; }
 
             final byte needleByte = needle[matchedLength];
-            final byte haystackByte = haystack[i];
+            final byte haystackByte = haystack.getByte(i);
 
             if (needleByte != haystackByte) {
                 matchedLength = 0;
@@ -134,122 +145,70 @@ public class MultipartParser {
         return (matchedLength == needle.length);
     }
 
-    protected static List<byte[]> _splitByteArray(final ByteArrayReader byteArrayReader, final byte[] boundary, final Integer maxSegmentCount) {
-        final ArrayList<byte[]> segments = new ArrayList<byte[]>();
+    protected static byte[] readToBoundary(final ByteArrayReader byteArrayReader, final ByteArray boundary) {
+        final int boundaryByteCount = boundary.getByteCount();
+        final int position = byteArrayReader.getPosition();
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
-        boolean firstBoundaryReached = false;
-
-        final ByteArrayBuilder boundaryBuffer = new ByteArrayBuilder();
-        final ByteArrayBuilder segmentBuilder = new ByteArrayBuilder();
         while (byteArrayReader.hasBytes()) {
-            final int boundaryIndex = boundaryBuffer.getByteCount();
+            final ByteArray bytes = MutableByteArray.wrap(byteArrayReader.peakBytes(boundaryByteCount));
+            if (byteArrayReader.didOverflow()) { break; }
 
-            final byte b = byteArrayReader.readByte();
-            final byte boundaryByte = boundary[boundaryIndex];
-            if (b != boundaryByte) { // Not at a boundary.
-                final byte[] invalidBoundary = boundaryBuffer.build();
-                boundaryBuffer.clear();
-
-                segmentBuilder.appendBytes(invalidBoundary);
-                segmentBuilder.appendByte(b);
+            if (Util.areEqual(boundary, bytes)) {
+                byteArrayReader.readBytes(boundaryByteCount); // Consume the deliminator...
+                return byteArrayBuilder.build();
             }
-            else {
-                boundaryBuffer.appendByte(b);
-                if (boundaryBuffer.getByteCount() >= boundary.length) { // Boundary reached.
-                    boundaryBuffer.clear(); // Dispose of boundary bytes.
-                    final byte[] segment = segmentBuilder.build();
-                    segmentBuilder.clear();
 
-                    if (firstBoundaryReached) {
-                        segments.add(segment);
-                    }
-
-                    firstBoundaryReached = true;
-
-                    if ( (maxSegmentCount != null) && (segments.size() >= maxSegmentCount) ) {
-                        final Integer remainingByteCount = byteArrayReader.remainingByteCount();
-                        if (remainingByteCount > 0) {
-                            segmentBuilder.appendBytes(byteArrayReader.readBytes(remainingByteCount));
-                        }
-                        break;
-                    }
-                }
-            }
+            final byte b = byteArrayReader.readByte(); // Advance a single byte...
+            byteArrayBuilder.appendByte(b);
         }
 
-        { // Append any remaining data...
-            final ByteArrayBuilder remainingData = new ByteArrayBuilder();
-            final byte[] invalidBoundary = boundaryBuffer.build();
-            boundaryBuffer.clear();
-            remainingData.appendBytes(invalidBoundary);
-
-            final byte[] segment = segmentBuilder.build();
-            segmentBuilder.clear();
-            remainingData.appendBytes(segment);
-
-            if ( (remainingData.getByteCount() > 0) || (! firstBoundaryReached) ) {
-                final byte[] remainingBytes = remainingData.build();
-                remainingData.clear();
-                segments.add(remainingBytes);
-            }
-        }
-
-        return segments;
+        byteArrayReader.setPosition(position);
+        return null;
     }
 
-    public static MultipartParser fromRequest(final String boundary, final byte[] request) {
-        final String preBoundaryString = "--";
-        final String newlineDeliminatorString = "\r\n";
-        final byte[] newlineDeliminator = StringUtil.stringToBytes(newlineDeliminatorString);
+    protected static String readLine(final ByteArrayReader byteArrayReader, final String newlineDeliminator) {
+        final ByteArray newlineDeliminatorBytes = MutableByteArray.wrap(newlineDeliminator.getBytes());
 
-        final int preBoundaryLength = preBoundaryString.length();
+        final byte[] bytes = MultiPartFormData.readToBoundary(byteArrayReader, newlineDeliminatorBytes);
+        if (bytes == null) { return null; }
+
+        return new String(bytes);
+    }
+
+    protected final MutableList<Part> _multiParts = new MutableList<Part>();
+
+    // Description:
+    //  If the paramValue is not null, the key/value pair will be appended to multiPartBody, prepended with a "; "
+    protected void _appendOptionalParam(final ByteArrayBuilder multiPartBody, final String paramKey, final String paramValue) {
+        if (paramValue != null) {
+            final byte[] appendedBytes = StringUtil.stringToBytes("; " + paramKey + "=\"" + paramValue + "\"");
+            multiPartBody.appendBytes(appendedBytes);
+        }
+    }
+
+    public static MultiPartFormData parseFromRequest(final String boundary, final byte[] request) {
+        final String preBoundaryString = "--";
+        final String newlineDeliminator = "\r\n";
+
+        final String expectedBoundary = (preBoundaryString + boundary);
 
         final ByteArrayReader byteArrayReader = new ByteArrayReader(request);
-        final String actualBoundary = byteArrayReader.readString(preBoundaryLength + boundary.length());
-        if (! Util.areEqual(actualBoundary, (preBoundaryString + boundary))) { return null; }
-        if (byteArrayReader.didOverflow()) { return null; }
+        final MultiPartFormData multiPartFormData = new MultiPartFormData();
 
-        final byte[] boundaryBytes = (actualBoundary + newlineDeliminatorString).getBytes();
-        byteArrayReader.setPosition(0);
-        final List<byte[]> segments = _splitByteArray(byteArrayReader, boundaryBytes, null);
-
-        if (segments.isEmpty()) { return null; }
-
-        final MultipartParser multipartParser = new MultipartParser();
-
-        final int segmentCount = segments.size();
-        for (int i = 0; i < segmentCount; ++i) {
-            final byte[] segment = segments.get(i);
-            final boolean isLastSegment = (i == (segmentCount - 1));
-            if (isLastSegment) {
-                final String endOfContentTag = (preBoundaryString + newlineDeliminatorString);
-                if (! ByteUtil.areEqual(endOfContentTag.getBytes(), segment)) { // Multipart data should end with a boundary concatenated with the preBoundary.
-                    return null;
-                }
-                continue;
+        while (byteArrayReader.hasBytes()) {
+            final String readBoundary = MultiPartFormData.readLine(byteArrayReader, newlineDeliminator);
+            if (Util.areEqual(readBoundary, expectedBoundary)) {
+                break;
             }
+        }
 
-            final List<byte[]> segmentDataChunks = _splitByteArray(new ByteArrayReader(segment), newlineDeliminator, 1);
-
-            final String segmentHeaders;
-            final byte[] segmentBytes;
-            {
-                if (segmentDataChunks.size() == 2) {
-                    segmentHeaders = StringUtil.bytesToString(segmentDataChunks.get(0));
-                    segmentBytes = segmentDataChunks.get(1);
-                }
-                else {
-                    segmentHeaders = "";
-                    segmentBytes = segmentDataChunks.get(0);
-                }
-            }
-
-            final MultiPart multiPart = new MultiPart();
-            multiPart.setData(segmentBytes);
+        while (byteArrayReader.hasBytes()) {
+            final Part multiPart = new Part();
 
             { // Parse MultiPart headers...
-                final String[] headers = segmentHeaders.split(newlineDeliminatorString);
-                for (final String header : headers) {
+                String header = MultiPartFormData.readLine(byteArrayReader, newlineDeliminator);
+                while ( (header != null) && (! header.isEmpty()) ) {
                     final int headerKeyEndIndex = header.indexOf(":");
                     if (headerKeyEndIndex < 0) { return null; }
 
@@ -258,20 +217,31 @@ public class MultipartParser {
                     final String lowerCaseHeaderKey = headerKey.toLowerCase();
 
                     String headerValue = "";
-                    final String[] splitHeaderValues = headerValues.split(";");
-                    for (int j = 0; j < splitHeaderValues.length; ++j) {
-                        final String splitValue = splitHeaderValues[j].trim();
-                        if (j == 0) {
-                            headerValue = splitValue;
-                            continue;
-                        }
+                    final HashMap<String, String> extras = new HashMap<String, String>();
+                    {
+                        final String[] splitHeaderValues = headerValues.split(";");
+                        for (int j = 0; j < splitHeaderValues.length; ++j) {
+                            final String splitValue = splitHeaderValues[j].trim();
+                            if (j == 0) {
+                                headerValue = splitValue;
+                                continue;
+                            }
 
-                        if (Util.areEqual("content-disposition", lowerCaseHeaderKey)) {
                             final String[] headerKeyValueExtras = splitValue.split("=", 2);
                             if (headerKeyValueExtras.length != 2) { continue; }
 
                             final String extraKey = headerKeyValueExtras[0].trim();
-                            final String extraValue = StringUtil.pregMatch("^(\"?)(.*)\\1$", headerKeyValueExtras[1]).get(1); // Allow for values surrounded by double quotes.
+                            final String extraValue = StringUtil.unquoteString(headerKeyValueExtras[1]);
+                            extras.put(extraKey, extraValue);
+                        }
+                    }
+
+                    if (Util.areEqual("content-disposition", lowerCaseHeaderKey)) {
+                        final Part.ContentDisposition contentDisposition = Part.ContentDisposition.fromString(headerValue);
+                        multiPart.setContentDisposition(contentDisposition);
+
+                        for (final String extraKey : extras.keySet()) {
+                            final String extraValue = extras.get(extraKey);
 
                             switch (extraKey.toLowerCase()) {
                                 case "name": {
@@ -299,37 +269,53 @@ public class MultipartParser {
                                 }
                             }
                         }
-                        else if (Util.areEqual("content-type", lowerCaseHeaderKey)) {
-                            multiPart.setContentType(splitValue);
-                        }
-                        else {
-                            // Unknown header...
-                        }
+                    }
+                    else if (Util.areEqual("content-type", lowerCaseHeaderKey)) {
+                        multiPart.setContentType(headerValue);
+                    }
+                    else {
+                        // Unknown header...
                     }
 
-                    if (Util.areEqual("content-disposition", lowerCaseHeaderKey)) {
-                        final MultiPart.ContentDisposition contentDisposition = MultiPart.ContentDisposition.fromString(headerValue);
-                        multiPart.setContentDisposition(contentDisposition);
-                    }
+                    header = MultiPartFormData.readLine(byteArrayReader, newlineDeliminator);
                 }
             }
 
-            multipartParser.addMultiPart(multiPart);
+            { // Read binary content...
+                final String endBoundary = (newlineDeliminator + preBoundaryString + boundary);
+                final byte[] data = MultiPartFormData.readToBoundary(byteArrayReader, MutableByteArray.wrap(endBoundary.getBytes()));
+                if (data == null) {
+                    continue; // Discard invalid segment...
+                }
+
+                multiPart.setData(data);
+            }
+
+            multiPartFormData.addPart(multiPart);
+
+            { // Clear end of segment newline or closing boundary...
+                if (! byteArrayReader.hasBytes()) { return null; }
+                final byte[] closingBytes = byteArrayReader.readBytes(newlineDeliminator.length());
+                if (! ByteUtil.areEqual(closingBytes, newlineDeliminator.getBytes())) {
+                    final byte[] closingBytes2 = byteArrayReader.readBytes(preBoundaryString.length());
+                    final byte[] endOfSegmentBytes = new byte[closingBytes.length + closingBytes2.length];
+                    ByteUtil.setBytes(endOfSegmentBytes, closingBytes);
+                    ByteUtil.setBytes(endOfSegmentBytes, closingBytes2, closingBytes.length);
+
+                    final byte[] expectedEndBytes = (preBoundaryString + newlineDeliminator).getBytes();
+                    if (! ByteUtil.areEqual(endOfSegmentBytes, expectedEndBytes)) {
+                        return null;
+                    }
+
+                    if (byteArrayReader.hasBytes()) { return null; } // Should have reached the end of stream...
+                }
+            }
         }
 
-        return multipartParser;
+        return multiPartFormData;
     }
 
-    // Description:
-    //  If the paramValue is not null, the key/value pair will be appended to multiPartBody, prepended with a "; "
-    protected void _appendOptionalParam(final ByteArrayBuilder multiPartBody, final String paramKey, final String paramValue) {
-        if (paramValue != null) {
-            final byte[] appendedBytes = StringUtil.stringToBytes("; " + paramKey + "=\"" + paramValue + "\"");
-            multiPartBody.appendBytes(appendedBytes);
-        }
-    }
-
-    public void addMultiPart(final MultiPart multiPart) {
+    public void addPart(final Part multiPart) {
         if (multiPart.isValid()) {
             _multiParts.add(multiPart);
         }
@@ -338,32 +324,41 @@ public class MultipartParser {
         }
     }
 
-    public static class MultiPartRequest {
-        public final Map<String, String> headers = new HashMap<String, String>();
-        public final byte[] payload;
-
-        public MultiPartRequest(final byte[] payload) {
-            this.payload = payload;
-        }
+    public List<Part> getParts() {
+        return _multiParts;
     }
 
-    public MultiPartRequest getPayload() {
+    public Part getPart(final String multiPartName) {
+        final String lowerCaseMultiPartName = multiPartName.toLowerCase();
+
+        for (final Part multiPart : _multiParts) {
+            final String existingPartName = multiPart.getName();
+            final String lowerCaseExistingPartName = existingPartName.toLowerCase();
+            if (Util.areEqual(lowerCaseMultiPartName, lowerCaseExistingPartName)) {
+                return multiPart;
+            }
+        }
+
+        return null;
+    }
+
+    public MultiPartRequest buildRequest() {
         final ByteArrayBuilder multiPartBody = new ByteArrayBuilder();
 
-        String boundary = _generateRandomBoundary();
+        String boundary = generateRandomBoundary();
         boolean boundaryIsValid = false;
         while (! boundaryIsValid) {
             boundaryIsValid = true;
 
             final byte[] needle = StringUtil.stringToBytes(boundary);
-            for (final MultiPart multiPart : _multiParts) {
-                if (_doesDataContainData(needle, multiPart.getData())) {
+            for (final Part multiPart : _multiParts) {
+                if (doesDataContainData(needle, multiPart.getData())) {
                     boundaryIsValid = false;
                 }
             }
 
             if (! boundaryIsValid) {
-                boundary = _generateRandomBoundary();
+                boundary = generateRandomBoundary();
             }
         }
 
@@ -371,13 +366,13 @@ public class MultipartParser {
         final byte[] boundaryBytes = StringUtil.stringToBytes(boundary);
         final byte[] newlineDeliminator = StringUtil.stringToBytes("\r\n");
 
-        for (final MultiPart multiPart : _multiParts) {
+        for (final Part multiPart : _multiParts) {
             multiPartBody.appendBytes(preBoundaryBytes);
             multiPartBody.appendBytes(boundaryBytes);
             multiPartBody.appendBytes(newlineDeliminator);
 
             // Set Content-Disposition and Optional-Params
-            final MultiPart.ContentDisposition contentDisposition = multiPart.getContentDisposition();
+            final Part.ContentDisposition contentDisposition = multiPart.getContentDisposition();
             multiPartBody.appendBytes(StringUtil.stringToBytes("Content-Disposition: " + (contentDisposition != null ? contentDisposition.getValue() : "")));
             multiPartBody.appendBytes(StringUtil.stringToBytes("; name=\"" + multiPart.getName() + "\""));
 
