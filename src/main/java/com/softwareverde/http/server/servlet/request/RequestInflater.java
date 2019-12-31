@@ -34,6 +34,9 @@ public class RequestInflater {
     protected void _buildRequestBody(final Request request, final HttpExchange httpExchange) {
         try {
             final byte[] postBytes = IoUtil.readStream(httpExchange.getRequestBody());
+            System.out.println(request._headers.getHeader("Content-Type"));
+            System.out.println(new String(postBytes));
+
             request._rawPostData = postBytes;
             request._postParameters = POST_PARAMETERS_PARSER.parse(StringUtil.bytesToString(postBytes));
         }
@@ -67,6 +70,7 @@ public class RequestInflater {
             final com.sun.net.httpserver.Headers httpExchangeHeaders = httpExchange.getRequestHeaders();
 
             for (final String headerKey : httpExchangeHeaders.keySet()) {
+                System.out.println("Header: " + headerKey);
                 if (! request._headers.containsHeader(headerKey)) {
                     request._headers.setHeader(headerKey, new ArrayList<String>());
                 }
