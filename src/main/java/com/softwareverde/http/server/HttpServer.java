@@ -7,6 +7,7 @@ import com.softwareverde.http.server.servlet.request.Request;
 import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.http.tls.TlsCertificate;
 import com.softwareverde.http.tls.TlsFactory;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.sun.net.httpserver.HttpsConfigurator;
@@ -168,7 +169,7 @@ public class HttpServer {
         final byte[] certificateBytes = IoUtil.getFileContents(certificateFile);
         final byte[] certificateKeyFileBytes = IoUtil.getFileContents(certificateKeyFile);
         if ( (certificateBytes == null) || (certificateKeyFileBytes == null) ) {
-            System.out.println("Error loading certificate: " + certificateFile + ", " + certificateKeyFile);
+            Logger.error("Error loading certificate: " + certificateFile + ", " + certificateKeyFile);
             return;
         }
 

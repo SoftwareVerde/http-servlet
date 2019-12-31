@@ -3,6 +3,7 @@ package com.softwareverde.http.server.servlet.request;
 import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.cookie.Cookie;
 import com.softwareverde.http.cookie.CookieParser;
+import com.softwareverde.http.form.MultiPartFormData;
 import com.softwareverde.http.querystring.GetParameters;
 import com.softwareverde.http.querystring.PostParameters;
 import com.softwareverde.http.querystring.QueryStringParser;
@@ -17,6 +18,35 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RequestInflater {
+    protected static Boolean headerContainsValue(final List<String> headerValues, final String value) {
+        final String lowerCaseValue = value.toLowerCase();
+        for (final String headerValue : headerValues) {
+            final String lowerCaseHeaderValue = headerValue.toLowerCase();
+            if (lowerCaseHeaderValue.contains(lowerCaseValue)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns the value of a "; extraKey=value" extra within a header, or null if the key is not found.
+     *  If the key is found, only the value is returned--excluding the extraKey and equal sign.
+     */
+    protected static String getHeaderExtra(final List<String> headerValues, final String extraKey) {
+        final String lowerCaseExtraKey = extraKey.toLowerCase();
+        for (final String headerValue : headerValues) {
+            for (final String headerExtraValue : headerValue.split(";")) {
+                final String trimmedExtraValue = StringUtil.pregMatch("^[\\s]*(.*)$", headerExtraValue).get(0);
+                final String lowerCaseHeaderValue = trimmedExtraValue.toLowerCase();
+                if (lowerCaseHeaderValue.startsWith(lowerCaseExtraKey + "=")) {
+                    return trimmedExtraValue.substring(extraKey.length() + 1);
+                }
+            }
+        }
+        return null;
+    }
+
     public static final QueryStringParser<GetParameters> GET_PARAMETERS_PARSER = new QueryStringParser<GetParameters>(new QueryStringParser.QueryStringFactory<GetParameters>() {
         @Override
         public GetParameters newInstance() {
@@ -34,15 +64,34 @@ public class RequestInflater {
     protected void _buildRequestBody(final Request request, final HttpExchange httpExchange) {
         try {
             final byte[] postBytes = IoUtil.readStream(httpExchange.getRequestBody());
-            request._postParameters = POST_PARAMETERS_PARSER.parse(StringUtil.bytesToString(postBytes));
+
             request._rawPostData = postBytes;
+
+            boolean isTraditionalPost = true;
+            final Headers headers = request.getHeaders();
+            if (headers.containsHeader("content-type")) {
+                final List<String> contentTypeHeaderValues = headers.getHeader("content-type");
+                if (RequestInflater.headerContainsValue(contentTypeHeaderValues, "multipart/form-data")) {
+                    isTraditionalPost = false;
+
+                    final String boundary = RequestInflater.getHeaderExtra(contentTypeHeaderValues, "boundary");
+                    if ( (boundary != null) && (! boundary.isEmpty()) ) {
+                        request._multiPartFormData = MultiPartFormData.parseFromRequest(boundary, postBytes);
+                    }
+                }
+            }
+
+            if (isTraditionalPost) {
+                request._postParameters = POST_PARAMETERS_PARSER.parse(StringUtil.bytesToString(postBytes));
+            }
         }
         catch (final Exception exception) {
             Logger.warn(RequestInflater.class, "Unable to parse POST parameters.");
+            Logger.warn(exception);
         }
     }
 
-    protected Request _buildCoreRequest(final Request request, final HttpExchange httpExchange) {
+    protected void _buildCoreRequest(final Request request, final HttpExchange httpExchange) {
         final URI requestUri = httpExchange.getRequestURI();
         final String filePath = requestUri.getPath();
 
@@ -99,8 +148,6 @@ public class RequestInflater {
         catch (final Exception exception) {
             Logger.warn(RequestInflater.class, "Unable to parse GET parameters.", exception);
         }
-
-        return request;
     }
 
     public GetParameters parseGetParameters(final String queryString) {

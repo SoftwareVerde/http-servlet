@@ -1,5 +1,6 @@
 package com.softwareverde.http.tls.sni;
 
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ReflectionUtil;
 
 import javax.net.ssl.SSLContext;
@@ -26,7 +27,7 @@ public class ServerSslContextWithSni extends SSLContext {
                 return new ServerSslContextWithSni(core);
             }
             catch (final Exception exception) {
-                System.out.println("NOTICE: Unable to create Server SSL Context with SNI. Using system default.");
+                Logger.warn("Unable to create Server SSL Context with SNI. Using system default.");
                 return core;
             }
         }

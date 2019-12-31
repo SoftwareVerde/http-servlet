@@ -2,6 +2,7 @@ package com.softwareverde.http.server.servlet.request;
 
 import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.cookie.Cookie;
+import com.softwareverde.http.form.MultiPartFormData;
 import com.softwareverde.http.querystring.GetParameters;
 import com.softwareverde.http.querystring.PostParameters;
 import com.softwareverde.util.Util;
@@ -31,6 +32,7 @@ public class Request {
 
     protected GetParameters _getParameters;
     protected PostParameters _postParameters;
+    protected MultiPartFormData _multiPartFormData;
 
     protected String _rawQueryString; // (e.x. "?key=value")
     protected byte[] _rawPostData;
@@ -49,7 +51,17 @@ public class Request {
     }
 
     public List<Cookie> getCookies() { return Util.copyList(_cookies); }
+    public Cookie getCookie(final String cookieName) {
+        for (final Cookie cookie : _cookies) {
+            final String cookieKey = cookie.getKey();
+            if (Util.areEqual(cookieName.toLowerCase(), cookieKey.toLowerCase())) {
+                return cookie;
+            }
+        }
+        return null;
+    }
 
     public byte[] getRawPostData() { return _rawPostData; }
     public String getQueryString() { return _rawQueryString; }
+    public MultiPartFormData getMultiPartFormData() { return _multiPartFormData; }
 }
