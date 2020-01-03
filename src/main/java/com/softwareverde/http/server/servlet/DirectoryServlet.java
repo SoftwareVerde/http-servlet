@@ -17,6 +17,10 @@ public class DirectoryServlet implements Servlet {
         Response onFileNotFound(Request request);
     }
 
+    public static void setCacheControl(final Response response, final Long maxCacheAge) {
+        response.setHeader("cache-control", "private, max-age=" + maxCacheAge);
+    }
+
     protected Response _serveRawFile(final File file) {
         final Response response = new Response();
 
@@ -28,6 +32,11 @@ public class DirectoryServlet implements Servlet {
 
         response.setCode(Response.Codes.OK);
         response.setContent(IoUtil.getFileContents(file));
+
+        final Long maxCacheAge = _maxCacheAgeInSeconds;
+        if (maxCacheAge != null) {
+            DirectoryServlet.setCacheControl(response, maxCacheAge);
+        }
 
         return response;
     }
@@ -78,14 +87,15 @@ public class DirectoryServlet implements Servlet {
         return response;
     }
 
-    private final File _rootDirectory;
-    private Map<String, File> _servedFiles = null;
-    private Boolean _serveRecursive = false;
-    private String _indexFile = null;
-    private ContentTypeResolver _contentTypeResolver = new ContentTypeResolver();
-    private ErrorHandler _errorHandler;
+    protected final File _rootDirectory;
+    protected Map<String, File> _servedFiles = null;
+    protected Boolean _serveRecursive = false;
+    protected String _indexFile = null;
+    protected ContentTypeResolver _contentTypeResolver = new ContentTypeResolver();
+    protected ErrorHandler _errorHandler;
+    protected Long _maxCacheAgeInSeconds = null;
 
-    private void _indexServedFiles(final File directory, final Map<String, File> servedFiles) {
+    protected void _indexServedFiles(final File directory, final Map<String, File> servedFiles) {
         final File[] directoryFiles = directory.listFiles();
         if (directoryFiles != null) {
             for (final File file : directoryFiles) {
@@ -111,14 +121,18 @@ public class DirectoryServlet implements Servlet {
         }
     }
 
-    private void _reIndexFiles() {
+    protected void _reIndexFiles() {
         _servedFiles = new HashMap<String, File>();
         _indexServedFiles(_rootDirectory, _servedFiles);
     }
 
-    private String _parseExtension(final String filename) {
+    protected String _parseExtension(final String filename) {
         if (! filename.contains(".")) { return ""; }
-        return filename.substring(filename.lastIndexOf("."), filename.length());
+        return filename.substring(filename.lastIndexOf("."));
+    }
+
+    public void reIndexFiles() {
+        _reIndexFiles();
     }
 
     public DirectoryServlet(final File directory) {
@@ -130,6 +144,10 @@ public class DirectoryServlet implements Servlet {
     public void setShouldServeDirectories(final Boolean shouldServeDirectories) {
         _serveRecursive = shouldServeDirectories;
         _reIndexFiles();
+    }
+
+    public void setCacheEnabled(final Long maxAgeInSeconds) {
+        _maxCacheAgeInSeconds = maxAgeInSeconds;
     }
 
     public void setIndexFile(final String indexFile) {
