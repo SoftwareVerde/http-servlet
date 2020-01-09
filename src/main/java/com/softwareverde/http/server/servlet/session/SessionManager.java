@@ -1,131 +1,125 @@
 package com.softwareverde.http.server.servlet.session;
 
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.http.cookie.Cookie;
-import com.softwareverde.http.querystring.PostParameters;
-import com.softwareverde.http.server.servlet.request.Headers;
 import com.softwareverde.http.server.servlet.request.Request;
-import com.softwareverde.security.AuthorizationKeyFactory;
+import com.softwareverde.http.server.servlet.response.Response;
+import com.softwareverde.json.Json;
+import com.softwareverde.util.IoUtil;
+import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
+import java.io.File;
+import java.security.SecureRandom;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
-public class SessionManager<T> {
-    private final Map<String, T> _sessions = new ConcurrentHashMap<String, T>();
-    private final AuthorizationKeyFactory _authorizationKeyFactory = new AuthorizationKeyFactory(256);
-    protected String _authorizationTokenKey = "token";
-    protected String _sessionHeaderKey = "Authorization";
-    protected String _cookieKey = "SESSION_ID";
+public class SessionManager {
+    public static final String SESSION_COOKIE_KEY = "authentication_token";
+    public static final int DEFAULT_SESSION_TIMEOUT = (int) TimeUnit.HOURS.toSeconds(24);
 
-    /**
-     * Sets the key used for the Session's API/POST token.
-     *  The default value is "token".
-     *  Setting this value to null will disable post parameter authorization tokens.
-     */
-    public void setPostParameterKey(final String authorizationTokenKey) {
-        _authorizationTokenKey = authorizationTokenKey;
-    }
-    public String getPostParameterKey() {
-        return _authorizationTokenKey;
+    public static Cookie createCookie(final String key, final String value, final Boolean shouldCreateSecureCookie, final Integer cookieMaxAgeInSeconds) {
+        final Cookie cookie = new Cookie();
+        cookie.setIsHttpOnly(true);
+        cookie.setIsSameSiteStrict(true);
+        cookie.setIsSecure(shouldCreateSecureCookie);
+        cookie.setPath("/");
+        cookie.setKey(key);
+        cookie.setValue(value);
+        cookie.setMaxAge(cookieMaxAgeInSeconds);
+        return cookie;
     }
 
-    /**
-     * Sets the key used for the Session's authorization header.
-     *  The default value is "Authorization".
-     *  Setting this value to null will disable header authentication.
-     */
-    public void setHeaderKey(final String sessionHeaderKey) {
-        _sessionHeaderKey = sessionHeaderKey;
-    }
-    public String getHeaderKey() {
-        return _sessionHeaderKey;
-    }
-
-    /**
-     * Sets the name used for the Session's cookie.
-     *  The default value is "SESSION_ID".
-     *  If set to null, authorization via SessionCookies will be disabled.
-     */
-    public void setCookieKey(final String cookieKey) {
-        _cookieKey = cookieKey;
-    }
-    public String getCookieKey() {
-        return _cookieKey;
-    }
-
-    public String generateNewAuthorizationToken() {
-        return _authorizationKeyFactory.generateAuthorizationKey();
-    }
-
-    public Cookie generateSessionCookie(final String authorizationToken) {
-        final Cookie sessionCookie = new Cookie();
-
-        sessionCookie.setKey(_sessionHeaderKey);
-        sessionCookie.setValue(authorizationToken);
-        sessionCookie.setIsHttpOnly(true);
-        sessionCookie.setIsSecure(true);
-        sessionCookie.setPath("/");
-        sessionCookie.setMaxAge(365 * 24 * 60 * 60, true); // 1 Year
-
-        return sessionCookie;
-    }
-
-    /**
-     * Returns T set by setAuthorizedSession() that has authorized by either the auth cookie or post parameters.
-     *  Returns null if the session is not authorized.
-     *  The hierarchy used is:
-     *      Session Cookie > Authorization Header > POST Token
-     */
-    public T getSession(final Request request) {
-        final PostParameters postParameters = request.getPostParameters();
-
-        final String authorizationToken;
-        {
-            // Check via Session Cookie...
-            if (_cookieKey != null) {
-                String authorizationCookieValue = "";
-                final List<Cookie> cookies = request.getCookies();
-                for (final Cookie cookie : cookies) {
-                    if (_cookieKey.equalsIgnoreCase(cookie.getKey())) {
-                        authorizationCookieValue = cookie.getValue();
-                        break;
-                    }
-                }
-                authorizationToken = authorizationCookieValue;
-            }
-
-            // Check via Authorization Header...
-            else if (_sessionHeaderKey != null) {
-                String authorizationHeaderValue = "";
-                final Headers headers = request.getHeaders();
-                for (final String headerName : headers.getHeaderNames()) {
-                    if (! _sessionHeaderKey.equalsIgnoreCase(headerName)) { continue; }
-
-                    final List<String> sessionCookies = headers.getHeader(headerName);
-                    authorizationHeaderValue = (sessionCookies.isEmpty() ? "" : sessionCookies.get(0).trim());
-                    break;
-                }
-                authorizationToken = authorizationHeaderValue;
-            }
-
-            // Check via POST Token...
-            else if (_authorizationTokenKey != null) {
-                authorizationToken = Util.coalesce(postParameters.get(_authorizationTokenKey)).trim();
-            }
-
-            // No match found.
-            else {
-                authorizationToken = "";
+    public static SessionId getSessionId(final Request request) {
+        final List<Cookie> cookies = request.getCookies();
+        for (final Cookie cookie : cookies) {
+            final String cookieKey = cookie.getKey();
+            if (Util.areEqual(SESSION_COOKIE_KEY, cookieKey)) {
+                final String sessionId = Util.coalesce(cookie.getValue()).replaceAll("[^0-9A-Za-z]", "");
+                return SessionId.wrap(sessionId);
             }
         }
 
-        if (authorizationToken.length() == 0) { return null; }
-
-        return _sessions.get(authorizationToken);
+        return null;
     }
 
-    public void setAuthorizedSession(final String authorizationToken, final T session) {
-        _sessions.put(authorizationToken, session);
+    protected final String _cookiesDirectory;
+    protected final Boolean _shouldCreateSecureCookies;
+    protected final Integer _cookieMaxAgeInSeconds;
+
+    public SessionManager(final String cookiesDirectory, final Boolean shouldCreateSecureCookies) {
+        this(cookiesDirectory, shouldCreateSecureCookies, DEFAULT_SESSION_TIMEOUT);
+    }
+
+    public SessionManager(final String cookiesDirectory, final Boolean shouldCreateSecureCookies, final Integer cookieMaxAgeInSeconds) {
+        _cookiesDirectory = cookiesDirectory;
+        _shouldCreateSecureCookies = shouldCreateSecureCookies;
+        _cookieMaxAgeInSeconds = cookieMaxAgeInSeconds;
+
+        final File cookiesDirectoryFile = new File(cookiesDirectory);
+        if (! cookiesDirectoryFile.exists()) {
+            if (! cookiesDirectoryFile.mkdir()) {
+                throw new RuntimeException("Unable to create cookies directory.");
+            }
+        }
+    }
+
+    public Session getSession(final Request request) {
+        final SessionId sessionId = SessionManager.getSessionId(request);
+        if (sessionId == null) { return null; }
+
+        final File cookieFile = new File(_cookiesDirectory + sessionId);
+        if (! cookieFile.exists()) { return null; }
+
+        final String sessionData = StringUtil.bytesToString(IoUtil.getFileContents(cookieFile));
+        if (sessionData.isEmpty()) { return null; }
+
+        return Session.newSession(sessionId, sessionData);
+    }
+
+    public Session createSession(final Request request, final Response response) {
+        return createSession(request, response, _cookieMaxAgeInSeconds);
+    }
+
+    public Session createSession(final Request request, final Response response, final int cookieMaxAgeInSeconds) {
+        final SecureRandom secureRandom = new SecureRandom();
+        final MutableByteArray authenticationToken = new MutableByteArray(SessionId.BYTE_COUNT);
+        secureRandom.nextBytes(authenticationToken.unwrap());
+
+        final Session session = Session.newSession(SessionId.wrap(authenticationToken.toString()));
+        final Json sessionData = session.getMutableData();
+
+        IoUtil.putFileContents(_cookiesDirectory + session.getSessionId(), StringUtil.stringToBytes(sessionData.toString()));
+
+        final Cookie sessionCookie = SessionManager.createCookie(SESSION_COOKIE_KEY, authenticationToken.toString(), _shouldCreateSecureCookies, cookieMaxAgeInSeconds);
+
+        response.addCookie(sessionCookie);
+
+        return session;
+    }
+
+    public void saveSession(final Session session) {
+        IoUtil.putFileContents(_cookiesDirectory + session.getSessionId(), StringUtil.stringToBytes(session.toString()));
+    }
+
+    public boolean destroySession(final Request request, final Response response) {
+        final SessionId sessionId = SessionManager.getSessionId(request);
+        if (sessionId == null) { return false; }
+
+        try {
+            final File file = new File(_cookiesDirectory + sessionId);
+            if (! file.exists() || ! file.delete()) {
+                return false;
+            }
+        }
+        catch (final Exception exception) {
+            return false;
+        }
+
+        final Cookie sessionCookie = SessionManager.createCookie(SESSION_COOKIE_KEY, "", _shouldCreateSecureCookies, 0);
+        sessionCookie.setMaxAge(0, true);
+        response.addCookie(sessionCookie);
+
+        return true;
     }
 }
