@@ -12,7 +12,6 @@ import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.sun.net.httpserver.HttpExchange;
 
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -95,19 +94,8 @@ public class RequestInflater {
         final URI requestUri = httpExchange.getRequestURI();
         final String filePath = requestUri.getPath();
 
-        request._hostname = new Request.HostNameLookup() {
-            final InetSocketAddress _inetSocketAddress = httpExchange.getLocalAddress();
-
-            @Override
-            public String resolveHostName() {
-                return _inetSocketAddress.getHostName();
-            }
-
-            @Override
-            public String getHostName() {
-                return _inetSocketAddress.toString();
-            }
-        };
+        request._remoteHost = new InetSocketAddressHostInformation(httpExchange.getRemoteAddress());
+        request._localHost = new InetSocketAddressHostInformation(httpExchange.getLocalAddress());
 
         request._filePath = filePath;
         request._method = HttpMethod.fromString(httpExchange.getRequestMethod());

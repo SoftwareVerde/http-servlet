@@ -22,7 +22,8 @@ public class TomcatShim extends HttpServlet {
     public static Request createRequestFromTomcatRequest(final HttpServletRequest httpServletRequest) {
         final TomcatRequest request = new TomcatRequest();
 
-        request.setHostname(httpServletRequest.getLocalAddr());
+        request.setLocalHost(httpServletRequest);
+        request.setRemoteHost(httpServletRequest);
         request.setFilePath(httpServletRequest.getRequestURL().toString());
         request.setMethod(HttpMethod.fromString(httpServletRequest.getMethod()));
 

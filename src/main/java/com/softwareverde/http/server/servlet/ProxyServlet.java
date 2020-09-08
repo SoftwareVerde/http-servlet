@@ -54,7 +54,7 @@ public class ProxyServlet implements WebSocketServlet {
                 serverHostname = Util.coalesce(headers.getHeader("host").get(0));
             }
             else {
-                serverHostname = request.resolveHostname();
+                serverHostname = request.getLocalHostInformation().resolveHostName();
             }
         }
 

@@ -24,7 +24,7 @@ public class EncryptionRedirectServlet implements Servlet {
             }
         }
 
-        return request.resolveHostname();
+        return request.getLocalHostInformation().resolveHostName();
     }
 
     protected String _getServerHostname(final Request request) {

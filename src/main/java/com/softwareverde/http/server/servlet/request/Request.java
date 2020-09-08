@@ -11,11 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Request {
-    protected interface HostNameLookup {
-        String resolveHostName();
-        String getHostName();
-    }
-
     /**
      * Returns true if the header is a WebSocket initialization header (aka: "Upgrade WebSocket").
      */
@@ -23,7 +18,8 @@ public class Request {
         return (Util.areEqual("upgrade", Util.coalesce(headerKey).toLowerCase()) && Util.areEqual("websocket", Util.coalesce(headerValue).toLowerCase()));
     }
 
-    protected HostNameLookup _hostname; // The hostname of the server. (e.x.: "softwareverde.com")
+    protected HostInformation _remoteHost; // the client connecting to the server
+    protected HostInformation _localHost; // the server itself (e.x.: "softwareverde.com")
     protected String _filePath;         // The filepath of the request-url. (e.x.: "/index.html")
     protected HttpMethod _method;
 
@@ -37,8 +33,13 @@ public class Request {
     protected String _rawQueryString; // (e.x. "?key=value")
     protected byte[] _rawPostData;
 
-    public String resolveHostname() { return _hostname.resolveHostName(); }
-    public String getHostname() { return _hostname.getHostName(); }
+    public HostInformation getRemoteHostInformation() { return _remoteHost; }
+    public HostInformation getLocalHostInformation() { return _localHost; }
+
+    @Deprecated
+    public String resolveHostname() { return _localHost.resolveHostName(); }
+    @Deprecated
+    public String getHostname() { return _localHost.getHostInfo(); }
 
     public String getFilePath() { return _filePath; }
     public HttpMethod getMethod() { return _method; }
