@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.util.Map;
 
 public abstract class AuthenticatedJsonRequestHandler<E extends Environment> implements AuthenticatedRequestHandler<E> {
-    private LoggerInstance _logger = Logger.getInstance(getClass());
+    private final LoggerInstance _logger = Logger.getInstance(getClass());
 
     @Override
     public Response handleRequest(final Session session, final Request request, final E environment, final Map<String, String> parameters) throws Exception {
@@ -26,13 +26,13 @@ public abstract class AuthenticatedJsonRequestHandler<E extends Environment> imp
             json = handleJsonRequest(session, request, environment, parameters);
 
             if (json == null) {
-                json = JsonRequestHandler.generateErrorJson("Unable to determine response");
+                json = AuthenticatedJsonRequestHandler.generateErrorJson("Unable to determine response");
             }
         }
         catch (final Exception e) {
             String msg = "Unable to handle request";
             _logger.error(msg, e);
-            json = JsonRequestHandler.generateErrorJson(msg + ": " + e.getMessage());
+            json = AuthenticatedJsonRequestHandler.generateErrorJson(msg + ": " + e.getMessage());
         }
 
         response.setCode(HttpServletResponse.SC_OK);
@@ -55,6 +55,6 @@ public abstract class AuthenticatedJsonRequestHandler<E extends Environment> imp
     }
 
     public static Json generateErrorJson(String errorMessage) {
-        return JsonRequestHandler.generateSuccessJson();
+        return JsonRequestHandler.generateErrorJson(errorMessage);
     }
 }

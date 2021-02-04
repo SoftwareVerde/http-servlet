@@ -43,7 +43,7 @@ public class AuthenticatedJsonApplicationServlet<E extends Environment> extends 
     protected void _replaceContentWithJsonError(final Response response) {
         final String responseContent = new String(response.getContent());
 
-        final Json json = JsonRequestHandler.generateErrorJson(responseContent);
+        final Json json = AuthenticatedJsonRequestHandler.generateErrorJson(responseContent);
         response.setContent(json.toString());
     }
 }
