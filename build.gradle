@@ -24,9 +24,10 @@ dependencies {
     compileOnly         group: 'org.apache.tomcat',         name: 'tomcat-servlet-api', version: '7.0.37'
 
     api                 group: 'com.github.softwareverde',  name: 'json',               version: 'v2.0.0'
-    api                 group: 'com.github.softwareverde',  name: 'java-http-client',   version: 'v2.0.5'
+    api                 group: 'com.github.softwareverde',  name: 'java-http-client',   version: 'v2.2.5'
     implementation      group: 'com.github.softwareverde',  name: 'java-logging',       version: 'v2.2.0'
-    implementation      group: 'com.github.softwareverde',  name: 'java-util',          version: 'v2.5.0'
+    implementation      group: 'com.github.softwareverde',  name: 'java-util',          version: 'v2.7.3'
+    implementation      group: 'com.github.softwareverde',  name: 'java-cryptography',  version: 'v3.2.1'
 
     testImplementation  group: 'junit',                     name: 'junit',              version: '4.11'
 }

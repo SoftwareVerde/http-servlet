@@ -1,11 +1,12 @@
 package com.softwareverde.http.server.servlet.response;
 
+import com.softwareverde.cryptography.util.HashUtil;
+import com.softwareverde.http.HttpRequest;
 import com.softwareverde.http.cookie.Cookie;
 import com.softwareverde.util.Base64Util;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,19 +46,15 @@ public class Response {
             public static class Values {
                 private Values() { }
 
-                protected static final String GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+                protected static final String GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"; // HttpRequest.SEC_WEB_SOCKET_KEY
 
                 public static final String CONNECTION = "upgrade";
                 public static final String UPGRADE = "websocket";
 
                 public static String createAcceptHeader(final String webSocketKey) {
-                    try {
-                        final MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
-                        final byte[] payload = messageDigest.digest(StringUtil.stringToBytes(webSocketKey + GUID));
-                        return Base64Util.toBase64String(payload);
-                    }
-                    catch (final Exception exception) { }
-                    return null;
+                    final byte[] preImage = StringUtil.stringToBytes(webSocketKey + GUID);
+                    final byte[] hashBytes = HashUtil.sha1(preImage);
+                    return Base64Util.toBase64String(hashBytes);
                 }
             }
         }
