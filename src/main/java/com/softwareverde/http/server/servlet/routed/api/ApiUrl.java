@@ -12,6 +12,10 @@ class ApiUrl {
         SEGMENT, PARAMETER
     }
 
+    protected enum MatchType {
+        NONE, PARAMETERIZED, EXACT
+    }
+
     private final String _path;
     private final HttpMethod _httpMethod;
     private final List<SegmentType> _segmentTypes = new ArrayList<SegmentType>();
@@ -32,12 +36,14 @@ class ApiUrl {
         _segmentIdentifiers.add(segment);
     }
 
-    public Boolean matches(final String path, final HttpMethod httpMethod) {
-        if (httpMethod != _httpMethod) { return false; }
+    public MatchType matches(final String path, final HttpMethod httpMethod) {
+        if (httpMethod != _httpMethod) { return MatchType.NONE; }
 
         final String cleanedPath = ApiUrlRouter._cleanUrl(path);
         final String[] segments = cleanedPath.split("/");
-        if (_segmentTypes.size() != segments.length) { return false; }
+        if (_segmentTypes.size() != segments.length) { return MatchType.NONE; }
+
+        boolean isExactMatch = true;
 
         for (int i=0; i<segments.length; ++i) {
             final String segment = segments[i];
@@ -46,12 +52,15 @@ class ApiUrl {
             if (isSegment) {
                  final String segmentIdentifier = _segmentIdentifiers.get(i);
                  if (! segmentIdentifier.equalsIgnoreCase(segment)) {
-                     return false;
+                     return MatchType.NONE;
                  }
+            }
+            else {
+                isExactMatch = false;
             }
         }
 
-        return true;
+        return isExactMatch ? MatchType.EXACT : MatchType.PARAMETERIZED;
     }
 
     public Map<String, String> getParameters(final String path) {
