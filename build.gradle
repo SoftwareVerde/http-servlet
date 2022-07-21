@@ -11,7 +11,7 @@ task makeJar(type: Jar) {
         attributes  'Implementation-Title': 'HTTP Server',
                     'Implementation-Version': version
     }
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     with jar
 }
 
