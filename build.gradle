@@ -1,15 +1,18 @@
 group 'com.softwareverde'
-version '3.3.1'
+version '3.3.3'
 
 apply plugin: 'java'
 apply plugin: 'java-library'
 
-sourceCompatibility = 1.8
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 
 task makeJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'HTTP Server',
-                    'Implementation-Version': version
+                    'Implementation-Version': archiveVersion
     }
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
@@ -21,12 +24,14 @@ repositories {
 }
 
 dependencies {
+    // implementation fileTree(dir: 'libs', include: ['*.jar'])
+
     compileOnly         group: 'org.apache.tomcat',         name: 'tomcat-servlet-api', version: '7.0.37'
 
     api                 group: 'com.github.softwareverde',  name: 'json',               version: 'v2.0.0'
     api                 group: 'com.github.softwareverde',  name: 'java-http-client',   version: 'v2.2.5'
     implementation      group: 'com.github.softwareverde',  name: 'java-logging',       version: 'v2.2.0'
-    implementation      group: 'com.github.softwareverde',  name: 'java-util',          version: 'v2.7.3'
+    implementation      group: 'com.github.softwareverde',  name: 'java-util',          version: 'v2.7.5'
     implementation      group: 'com.github.softwareverde',  name: 'java-cryptography',  version: 'v3.2.1'
 
     testImplementation  group: 'junit',                     name: 'junit',              version: '4.11'

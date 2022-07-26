@@ -3,9 +3,16 @@ package com.softwareverde.http.tls;
 import com.softwareverde.http.tls.sni.KeyManagerWithSni;
 import com.softwareverde.http.tls.sni.ServerSslContextWithSni;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.SystemUtil;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.Version;
 
-import javax.net.ssl.*;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509KeyManager;
 import javax.security.auth.x500.X500Principal;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
@@ -13,6 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TlsCertificate {
+    public static final Version MIN_SNI_JVM_VERSION = new Version(11, 0, 0); // NOTE: Allegedly fixed in v9, but unable to confirm.
+
     public static String getHostName(final X509Certificate x509Certificate) {
         final X500Principal x500Principal = x509Certificate.getSubjectX500Principal();
         final String subjectName = x500Principal.getName();
@@ -43,16 +52,23 @@ public class TlsCertificate {
 
     /**
      * Returns an SNI-aware SSL context for the associated x509 Certificates.
-     *  Unlike the standard Java implementation, the certificate returned by this context will attempt to match
-     *      the certificate with the domain requested.  If SNI is unavailable, then the default behavior is used.
      */
     public SSLContext createContext() {
         try {
-            final SSLContext sslContext = ServerSslContextWithSni.newInstance();
-            if (sslContext == null) { return null; }
+            final SSLContext sslContext;
+            { // NOTE: JVM 8 and below have a bug in its SNI detection, therefore a workaround is applied for older versions of Java.
+                final Version jvmVersion = SystemUtil.getJvmVersion();
+                if (jvmVersion.compareTo(MIN_SNI_JVM_VERSION) >= 0) {
+                    sslContext = SSLContext.getInstance("TLS");
+                }
+                else {
+                    sslContext = ServerSslContextWithSni.newInstance();
+                    if (sslContext == null) { return null; }
+                }
+            }
 
-            final ArrayList<KeyManager> keyManagerList = new ArrayList<KeyManager>();
-            final ArrayList<TrustManager> trustManagerList = new ArrayList<TrustManager>();
+            final ArrayList<KeyManager> keyManagerList = new ArrayList<>();
+            final ArrayList<TrustManager> trustManagerList = new ArrayList<>();
 
             for (final KeyManager keyManager : _keyManagerFactory.getKeyManagers()) {
                 if (! (keyManager instanceof X509KeyManager)) { continue; }
