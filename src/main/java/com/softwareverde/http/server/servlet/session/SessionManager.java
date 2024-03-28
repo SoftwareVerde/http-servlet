@@ -18,15 +18,53 @@ public class SessionManager {
     public static final String SESSION_COOKIE_KEY = "authentication_token";
     public static final int DEFAULT_SESSION_TIMEOUT = (int) TimeUnit.HOURS.toSeconds(24);
 
+    public static class CookieSettings {
+        public static final Integer DEFAULT_COOKIE_MAX_AGE_IN_SECONDS = 31540000;
+        public static final CookieSettings SecureCookieSettings = new CookieSettings();
+
+        public Boolean isHttpOnly = true;
+        public Boolean isSameSiteStrict = true;
+        public Boolean shouldSetSecureFlag = true;
+        public Integer cookieMaxAgeInSeconds = DEFAULT_COOKIE_MAX_AGE_IN_SECONDS;
+
+        public CookieSettings() { }
+
+        public CookieSettings(final Boolean shouldSetSecureFlag, final Integer cookieMaxAgeInSeconds) {
+            this(true, true, shouldSetSecureFlag, cookieMaxAgeInSeconds);
+        }
+
+        public CookieSettings(final Boolean isHttpOnly, final Boolean isSameSiteStrict, final Boolean shouldSetSecureFlag, final Integer cookieMaxAgeInSeconds) {
+            this.isHttpOnly = isHttpOnly;
+            this.isSameSiteStrict = isSameSiteStrict;
+            this.shouldSetSecureFlag = shouldSetSecureFlag;
+            this.cookieMaxAgeInSeconds = cookieMaxAgeInSeconds;
+        }
+
+        public CookieSettings(final CookieSettings cookieSettings) {
+            this.isHttpOnly = cookieSettings.isHttpOnly;
+            this.isSameSiteStrict = cookieSettings.isSameSiteStrict;
+            this.shouldSetSecureFlag = cookieSettings.shouldSetSecureFlag;
+            this.cookieMaxAgeInSeconds = cookieSettings.cookieMaxAgeInSeconds;
+        }
+
+    }
+
     public static Cookie createCookie(final String key, final String value, final Boolean shouldCreateSecureCookie, final Integer cookieMaxAgeInSeconds) {
+        final CookieSettings cookieSettings = new CookieSettings();
+        cookieSettings.shouldSetSecureFlag = shouldCreateSecureCookie;
+        cookieSettings.cookieMaxAgeInSeconds = cookieMaxAgeInSeconds;
+        return SessionManager.createCookie(key, value, cookieSettings);
+    }
+
+    public static Cookie createCookie(final String key, final String value, final CookieSettings cookieSettings) {
         final Cookie cookie = new Cookie();
-        cookie.setIsHttpOnly(true);
-        cookie.setIsSameSiteStrict(true);
-        cookie.setIsSecure(shouldCreateSecureCookie);
+        cookie.setIsHttpOnly(Util.coalesce(cookieSettings.isHttpOnly));
+        cookie.setIsSameSiteStrict(Util.coalesce(cookieSettings.isSameSiteStrict));
+        cookie.setIsSecure(Util.coalesce(cookieSettings.shouldSetSecureFlag));
         cookie.setPath("/");
         cookie.setKey(key);
         cookie.setValue(value);
-        cookie.setMaxAge(cookieMaxAgeInSeconds);
+        cookie.setMaxAge(Util.coalesce(cookieSettings.cookieMaxAgeInSeconds, CookieSettings.DEFAULT_COOKIE_MAX_AGE_IN_SECONDS));
         return cookie;
     }
 
@@ -44,17 +82,20 @@ public class SessionManager {
     }
 
     protected final String _cookiesDirectory;
-    protected final Boolean _shouldCreateSecureCookies;
-    protected final Integer _cookieMaxAgeInSeconds;
+    protected final CookieSettings _sessionCookieSettings;
 
     public SessionManager(final String cookiesDirectory, final Boolean shouldCreateSecureCookies) {
         this(cookiesDirectory, shouldCreateSecureCookies, DEFAULT_SESSION_TIMEOUT);
     }
 
     public SessionManager(final String cookiesDirectory, final Boolean shouldCreateSecureCookies, final Integer cookieMaxAgeInSeconds) {
+        this(cookiesDirectory, new CookieSettings(shouldCreateSecureCookies, cookieMaxAgeInSeconds));
+    }
+
+    public SessionManager(final String cookiesDirectory, final CookieSettings cookieSettings) {
         _cookiesDirectory = cookiesDirectory;
-        _shouldCreateSecureCookies = shouldCreateSecureCookies;
-        _cookieMaxAgeInSeconds = cookieMaxAgeInSeconds;
+
+        _sessionCookieSettings = cookieSettings;
 
         final File cookiesDirectoryFile = new File(cookiesDirectory);
         if (! cookiesDirectoryFile.exists()) {
@@ -78,7 +119,7 @@ public class SessionManager {
     }
 
     public Session createSession(final Request request, final Response response) {
-        return createSession(request, response, _cookieMaxAgeInSeconds);
+        return createSession(request, response, _sessionCookieSettings.cookieMaxAgeInSeconds);
     }
 
     public Session createSession(final Request request, final Response response, final int cookieMaxAgeInSeconds) {
@@ -91,7 +132,10 @@ public class SessionManager {
 
         IoUtil.putFileContents(_cookiesDirectory + session.getSessionId(), StringUtil.stringToBytes(sessionData.toString()));
 
-        final Cookie sessionCookie = SessionManager.createCookie(SESSION_COOKIE_KEY, authenticationToken.toString(), _shouldCreateSecureCookies, cookieMaxAgeInSeconds);
+        final CookieSettings cookieSettings = new CookieSettings(_sessionCookieSettings);
+        cookieSettings.cookieMaxAgeInSeconds = cookieMaxAgeInSeconds;
+
+        final Cookie sessionCookie = SessionManager.createCookie(SESSION_COOKIE_KEY, authenticationToken.toString(), cookieSettings);
 
         response.addCookie(sessionCookie);
 
@@ -116,7 +160,7 @@ public class SessionManager {
             return false;
         }
 
-        final Cookie sessionCookie = SessionManager.createCookie(SESSION_COOKIE_KEY, "", _shouldCreateSecureCookies, 0);
+        final Cookie sessionCookie = SessionManager.createCookie(SESSION_COOKIE_KEY, "", _sessionCookieSettings.shouldSetSecureFlag, 0);
         sessionCookie.setMaxAge(0, true);
         response.addCookie(sessionCookie);
 
