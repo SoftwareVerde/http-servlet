@@ -24,9 +24,12 @@ import java.util.List;
 import java.util.Map;
 
 class WebSocketHandler implements com.sun.net.httpserver.HttpHandler {
+
     protected final WebSocketServlet _servlet;
     protected final Boolean _shouldUseStrictPathMatching;
     protected final Integer _maxPacketByteCount;
+
+    protected WebSocketFactory _webSocketFactory = new WebSocketFactory() { };
 
     public WebSocketHandler(final WebSocketServlet servlet, final Boolean shouldUseStrictPathMatching) {
         this(servlet, shouldUseStrictPathMatching, 8192);
@@ -40,6 +43,10 @@ class WebSocketHandler implements com.sun.net.httpserver.HttpHandler {
 
     public WebSocketServlet getServlet() {
         return _servlet;
+    }
+
+    public void setWebSocketFactory(final WebSocketFactory webSocketFactory) {
+        _webSocketFactory = webSocketFactory;
     }
 
     @Override
@@ -178,7 +185,7 @@ class WebSocketHandler implements com.sun.net.httpserver.HttpHandler {
                 socket.setTcpNoDelay(true);
             }
 
-            final WebSocket webSocket = new WebSocket(webSocketId, WebSocket.Mode.SERVER, connectionLayer, _maxPacketByteCount);
+            final WebSocket webSocket = _webSocketFactory.newWebSocket(webSocketId, WebSocket.Mode.SERVER, connectionLayer, _maxPacketByteCount);
             _servlet.onNewWebSocket(webSocket);
         }
         else {

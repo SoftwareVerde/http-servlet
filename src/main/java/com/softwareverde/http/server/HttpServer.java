@@ -98,7 +98,14 @@ public class HttpServer {
         final WebSocketServlet servlet = endpoint.getServlet();
         final Boolean shouldUseStrictPath = endpoint.shouldUseStrictPath();
 
-        _endpoints.put(path, new WebSocketHandler(servlet, shouldUseStrictPath, _maxWebSocketPacketByteCount));
+        final WebSocketHandler webSocketHandler = new WebSocketHandler(servlet, shouldUseStrictPath, _maxWebSocketPacketByteCount);
+
+        final WebSocketFactory webSocketFactory = endpoint.getWebSocketFactory();
+        if (webSocketFactory != null) {
+            webSocketHandler.setWebSocketFactory(webSocketFactory);
+        }
+
+        _endpoints.put(path, webSocketHandler);
     }
 
     /**

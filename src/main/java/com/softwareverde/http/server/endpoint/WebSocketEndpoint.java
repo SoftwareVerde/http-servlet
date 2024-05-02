@@ -1,5 +1,6 @@
 package com.softwareverde.http.server.endpoint;
 
+import com.softwareverde.http.server.WebSocketFactory;
 import com.softwareverde.http.server.servlet.WebSocketServlet;
 
 public class WebSocketEndpoint {
@@ -7,8 +8,15 @@ public class WebSocketEndpoint {
     protected String _path;
     protected Boolean _shouldUseStrictPath;
 
+    protected WebSocketFactory _webSocketFactory;
+
     public WebSocketEndpoint(final WebSocketServlet servlet) {
+        this(servlet, null);
+    }
+
+    public WebSocketEndpoint(final WebSocketServlet servlet, final WebSocketFactory webSocketFactory) {
         _servlet = servlet;
+        _webSocketFactory = webSocketFactory;
     }
 
     public void setPath(final String path) {
@@ -29,5 +37,9 @@ public class WebSocketEndpoint {
 
     public WebSocketServlet getServlet() {
         return _servlet;
+    }
+
+    public WebSocketFactory getWebSocketFactory() {
+        return _webSocketFactory;
     }
 }
